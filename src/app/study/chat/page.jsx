@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Send, Loader2, CheckCircle2 } from "lucide-react";
+import MarkdownMessage from "@/components/common/MarkdownMessage";
 
 // ─── 메시지 버블 ───────────────────────────────────────────────────────────────
 
@@ -15,8 +16,8 @@ function CloyeeMessage({ content, feedback, score }) {
     <div className="flex flex-col gap-1 max-w-[75%]">
       <span className="text-xs text-muted-foreground font-medium px-1">Cloyee</span>
       <Card>
-        <CardContent className="py-3 px-4 text-sm whitespace-pre-wrap leading-relaxed">
-          {content}
+        <CardContent className="py-3 px-4 text-sm leading-relaxed">
+          <MarkdownMessage content={content} />
         </CardContent>
       </Card>
       {feedback && (
@@ -88,6 +89,8 @@ function ChatView() {
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
+  const SESSION_KEY = "cloyee_chat_session";
+
   // 새 메시지마다 스크롤 하단으로
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -100,8 +103,26 @@ function ChatView() {
     }
   }, [loading, isComplete]);
 
-  // 페이지 진입 시 Cloyee 첫 메시지 요청
+  // 메시지 변경 시 sessionStorage에 저장
   useEffect(() => {
+    if (messages.length === 0) return;
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ category, title, messages }));
+  }, [messages, category, title]);
+
+  // 진입 시 sessionStorage 복원 — 없거나 다른 세션이면 새로 시작
+  useEffect(() => {
+    const saved = sessionStorage.getItem(SESSION_KEY);
+    if (saved) {
+      try {
+        const { category: savedCategory, title: savedTitle, messages: savedMessages } = JSON.parse(saved);
+        if (savedCategory === category && savedTitle === title && savedMessages?.length > 0) {
+          setMessages(savedMessages);
+          return; // 복원 성공 → 첫 메시지 API 호출 스킵
+        }
+      } catch {
+        sessionStorage.removeItem(SESSION_KEY);
+      }
+    }
     callApi([], "학습을 시작해주세요.");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -140,6 +161,7 @@ function ChatView() {
           data.summary,
           [...history, { role: "user", content: userMessage }, { role: "assistant", content: data.message }]
         );
+        sessionStorage.removeItem(SESSION_KEY);
         setTimeout(() => router.push("/history"), 2000);
       }
     } catch (err) {
@@ -175,10 +197,17 @@ function ChatView() {
   }
 
   async function saveSession(summary, allMessages) {
-    await supabase.from("sessions").insert({
-      category,
-      title,
-      summary,
+    const { data, error } = await supabase
+      .from("sessions")
+      .insert({ category_id: category, title, summary, score: finalScore, mode: "chat" })
+      .select("id")
+      .single();
+    if (error) { console.error("[chat] 세션 저장 실패:", error.message); return; }
+
+    await supabase.from("reviews").insert({
+      session_id: data.id,
+      code: null,
+      messages: allMessages,
     });
   }
 

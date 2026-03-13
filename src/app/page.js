@@ -22,7 +22,7 @@ import {
 async function getDashboardData() {
   const { data: sessions } = await supabase
     .from("sessions")
-    .select("id, title, category, created_at")
+    .select("id, title, category_id, created_at, categories(name)")
     .order("created_at", { ascending: false });
 
   if (!sessions || sessions.length === 0) {
@@ -32,7 +32,7 @@ async function getDashboardData() {
   // 총 학습일 (날짜 중복 제거)
   const dateKey = (d) => {
     const dt = new Date(d);
-    return `${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`;
+    return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
   };
   const uniqueDates = new Set(sessions.map((s) => dateKey(s.created_at)));
   const totalDays = uniqueDates.size;
@@ -51,7 +51,7 @@ async function getDashboardData() {
   const sortedDates = [...uniqueDates]
     .map((s) => {
       const [y, m, d] = s.split("-").map(Number);
-      return new Date(y, m, d);
+      return new Date(y, m - 1, d);
     })
     .sort((a, b) => b - a);
 
@@ -209,7 +209,7 @@ export default async function HomePage() {
                   <CardContent className="flex items-center justify-between">
                     <div>
                       <p className="font-medium text-sm">{session.title ?? "학습 세션"}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{session.category}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{session.categories?.name ?? "—"}</p>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span>

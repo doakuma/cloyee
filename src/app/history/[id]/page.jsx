@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, MessageSquare, Code2, CalendarDays, Trophy } from "lucide-react";
+import MarkdownMessage from "@/components/common/MarkdownMessage";
 
 // ─── 데이터 fetching ──────────────────────────────────────────────────────────
 
@@ -41,13 +42,13 @@ function MessageBubble({ role, content }) {
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap leading-relaxed ${
+        className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
           isUser
-            ? "bg-primary text-primary-foreground rounded-tr-sm"
+            ? "bg-primary text-primary-foreground rounded-tr-sm whitespace-pre-wrap"
             : "bg-card border border-border rounded-tl-sm"
         }`}
       >
-        {content}
+        {isUser ? content : <MarkdownMessage content={content} />}
       </div>
     </div>
   );

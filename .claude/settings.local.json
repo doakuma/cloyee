@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd \"/c/Private/2026/withCloyee/01 grabWithCloyee/cloyee\" && pnpm add react-markdown)"
+    ]
+  }
+}

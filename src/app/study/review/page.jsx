@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Send, Loader2, CheckCircle2, Play } from "lucide-react";
+import MarkdownMessage from "@/components/common/MarkdownMessage";
 
 // ─── 상수 ─────────────────────────────────────────────────────────────────────
 
@@ -29,8 +30,8 @@ function CloyeeMessage({ content, feedback, score }) {
     <div className="flex flex-col gap-1 max-w-[90%]">
       <span className="text-xs text-muted-foreground font-medium px-1">Cloyee</span>
       <Card>
-        <CardContent className="py-3 px-4 text-sm whitespace-pre-wrap leading-relaxed">
-          {content}
+        <CardContent className="py-3 px-4 text-sm leading-relaxed">
+          <MarkdownMessage content={content} />
         </CardContent>
       </Card>
       {feedback && (
@@ -246,11 +247,24 @@ function ReviewView() {
     }
   }
 
-  async function saveSession(summary) {
-    await supabase.from("sessions").insert({
-      category,
-      title: `${LANGUAGES.find(l => l.value === language)?.label ?? language} 코드 리뷰`,
-      summary,
+  async function saveSession(summary, allMessages) {
+    const { data, error } = await supabase
+      .from("sessions")
+      .insert({
+        category_id: category,
+        title: `${LANGUAGES.find(l => l.value === language)?.label ?? language} 코드 리뷰`,
+        summary,
+        score: finalScore,
+        mode: "review",
+      })
+      .select("id")
+      .single();
+    if (error) { console.error("[review] 세션 저장 실패:", error.message); return; }
+
+    await supabase.from("reviews").insert({
+      session_id: data.id,
+      code,
+      messages: allMessages,
     });
   }
 
