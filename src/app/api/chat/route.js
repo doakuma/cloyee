@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { parseClaudeJson } from "@/lib/claude";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -75,19 +76,12 @@ export async function POST(request) {
     return Response.json({ error: "Claude API 호출에 실패했습니다.", detail: err.message }, { status: 502 });
   }
 
-  // JSON 블록 추출 (```json ... ``` 또는 순수 JSON 모두 대응)
-  const jsonMatch = raw.match(/```json\s*([\s\S]*?)```/) ?? raw.match(/(\{[\s\S]*\})/);
-  if (!jsonMatch) {
-    console.error("[chat] JSON 파싱 실패. raw:", raw);
-    return Response.json({ error: "Claude 응답을 파싱할 수 없습니다.", raw }, { status: 502 });
-  }
-
   let parsed;
   try {
-    parsed = JSON.parse(jsonMatch[1].trim());
+    parsed = parseClaudeJson(raw);
   } catch (err) {
-    console.error("[chat] JSON.parse 실패:", jsonMatch[1]);
-    return Response.json({ error: "JSON 파싱에 실패했습니다.", raw }, { status: 502 });
+    console.error("[chat] JSON 파싱 실패:", err.message);
+    return Response.json({ error: "Claude 응답을 파싱할 수 없습니다.", raw }, { status: 502 });
   }
 
   return Response.json({
