@@ -6,7 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Send, Loader2, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Send, Loader2, CheckCircle2, PauseCircle } from "lucide-react";
 import MarkdownMessage from "@/components/common/MarkdownMessage";
 
 // ─── 메시지 버블 ───────────────────────────────────────────────────────────────
@@ -78,11 +78,13 @@ function ChatView() {
 
   const category = searchParams.get("category") ?? "일반";
   const title = searchParams.get("title") ?? "자유 학습";
+  const sessionId = searchParams.get("session_id"); // 이어하기 진입 시 존재
 
   // { role: "user"|"assistant", content, score?, feedback? }
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [pausing, setPausing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
 
@@ -96,7 +98,7 @@ function ChatView() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  // 로딩 완료 후 입력창 포커스 (re-render 이후 textarea가 enabled된 시점에 실행)
+  // 로딩 완료 후 입력창 포커스
   useEffect(() => {
     if (!loading && !isComplete) {
       inputRef.current?.focus();
@@ -109,15 +111,20 @@ function ChatView() {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify({ category, title, messages }));
   }, [messages, category, title]);
 
-  // 진입 시 sessionStorage 복원 — 없거나 다른 세션이면 새로 시작
+  // 진입 시 초기화: session_id 있으면 Supabase에서 복원, 없으면 sessionStorage → 새 시작
   useEffect(() => {
+    if (sessionId) {
+      loadSession(sessionId);
+      return;
+    }
+
     const saved = sessionStorage.getItem(SESSION_KEY);
     if (saved) {
       try {
         const { category: savedCategory, title: savedTitle, messages: savedMessages } = JSON.parse(saved);
         if (savedCategory === category && savedTitle === title && savedMessages?.length > 0) {
           setMessages(savedMessages);
-          return; // 복원 성공 → 첫 메시지 API 호출 스킵
+          return;
         }
       } catch {
         sessionStorage.removeItem(SESSION_KEY);
@@ -126,6 +133,29 @@ function ChatView() {
     callApi([], "학습을 시작해주세요.");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Supabase에서 대화 복원 (이어하기)
+  async function loadSession(id) {
+    setLoading(true);
+    try {
+      const { data: review, error } = await supabase
+        .from("reviews")
+        .select("messages")
+        .eq("session_id", id)
+        .single();
+
+      if (!error && review?.messages?.length > 0) {
+        setMessages(review.messages);
+        setLoading(false);
+      } else {
+        setLoading(false);
+        callApi([], "학습을 이어서 시작해주세요.");
+      }
+    } catch {
+      setLoading(false);
+      callApi([], "학습을 시작해주세요.");
+    }
+  }
 
   // API 호출 공통 함수
   async function callApi(history, userMessage) {
@@ -157,10 +187,12 @@ function ChatView() {
       if (data.is_complete) {
         setIsComplete(true);
         setFinalScore(data.score);
-        await saveSession(
-          data.summary,
-          [...history, { role: "user", content: userMessage }, { role: "assistant", content: data.message }]
-        );
+        const allMessages = [
+          ...history,
+          { role: "user", content: userMessage },
+          { role: "assistant", content: data.message },
+        ];
+        await saveSession(data.summary, data.score, allMessages);
         sessionStorage.removeItem(SESSION_KEY);
         setTimeout(() => router.push("/history"), 2000);
       }
@@ -182,9 +214,7 @@ function ChatView() {
     const userContent = input.trim();
     setInput("");
 
-    // 현재 messages에서 API용 히스토리 추출 (role, content만)
     const history = messages.map(({ role, content }) => ({ role, content }));
-
     setMessages((prev) => [...prev, { role: "user", content: userContent }]);
     await callApi(history, userContent);
   }
@@ -196,22 +226,80 @@ function ChatView() {
     }
   }
 
-  async function saveSession(summary, allMessages) {
-    const { data, error } = await supabase
-      .from("sessions")
-      .insert({ category_id: category, title, summary, score: finalScore, mode: "chat" })
-      .select("id")
-      .single();
-    if (error) { console.error("[chat] 세션 저장 실패:", error.message); return; }
+  // 완료 시 세션 저장 (신규 생성 or 기존 세션 업데이트)
+  async function saveSession(summary, score, allMessages) {
+    if (sessionId) {
+      // 이어하기 → 기존 세션 업데이트
+      const { error: sessErr } = await supabase
+        .from("sessions")
+        .update({ is_complete: true, summary, score })
+        .eq("id", sessionId);
+      if (sessErr) { console.error("[chat] 세션 업데이트 실패:", sessErr.message); return; }
 
-    await supabase.from("reviews").insert({
-      session_id: data.id,
-      code: null,
-      messages: allMessages,
-    });
+      await supabase
+        .from("reviews")
+        .update({ messages: allMessages })
+        .eq("session_id", sessionId);
+    } else {
+      // 일반 완료 → 신규 세션 생성
+      const { data, error } = await supabase
+        .from("sessions")
+        .insert({ category_id: category, title, summary, score, mode: "chat", is_complete: true })
+        .select("id")
+        .single();
+      if (error) { console.error("[chat] 세션 저장 실패:", error.message); return; }
+
+      await supabase.from("reviews").insert({
+        session_id: data.id,
+        code: null,
+        messages: allMessages,
+      });
+    }
+  }
+
+  // 오늘은 여기까지 — 현재 진행 상태를 Supabase에 저장하고 홈으로 이동
+  async function pauseSession() {
+    if (pausing || loading || isComplete || messages.length === 0) return;
+    setPausing(true);
+    try {
+      const currentScore = messages.findLast((m) => m.role === "assistant")?.score ?? 0;
+      const apiMessages = messages.map(({ role, content }) => ({ role, content }));
+
+      if (sessionId) {
+        // 이어하기 중 다시 일시정지 → 기존 세션/리뷰 업데이트
+        await supabase
+          .from("sessions")
+          .update({ score: currentScore })
+          .eq("id", sessionId);
+        await supabase
+          .from("reviews")
+          .update({ messages: apiMessages })
+          .eq("session_id", sessionId);
+      } else {
+        // 신규 세션 중간 저장
+        const { data, error } = await supabase
+          .from("sessions")
+          .insert({ category_id: category, title, summary: "", score: currentScore, mode: "chat", is_complete: false })
+          .select("id")
+          .single();
+        if (error) { console.error("[chat] 중간저장 실패:", error.message); return; }
+
+        await supabase.from("reviews").insert({
+          session_id: data.id,
+          code: null,
+          messages: apiMessages,
+        });
+      }
+
+      sessionStorage.removeItem(SESSION_KEY);
+      router.push("/");
+    } finally {
+      setPausing(false);
+    }
   }
 
   const lastScore = messages.findLast((m) => m.role === "assistant")?.score;
+  const canPause = !loading && !isComplete && !pausing && messages.length > 0;
 
   return (
     <div className="flex flex-col h-screen">
@@ -229,6 +317,20 @@ function ChatView() {
           <Badge variant="secondary" className="shrink-0">{category}</Badge>
           <h1 className="text-sm font-semibold truncate">{title}</h1>
         </div>
+
+        {/* 오늘은 여기까지 버튼 */}
+        <button
+          onClick={pauseSession}
+          disabled={!canPause}
+          className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {pausing ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <PauseCircle size={14} />
+          )}
+          오늘은 여기까지
+        </button>
 
         {lastScore != null && (
           <div className="shrink-0 flex items-center gap-1.5">

@@ -13,6 +13,7 @@ import {
   BookOpen,
   Trophy,
   ChevronRight,
+  PlayCircle,
 } from "lucide-react";
 
 
@@ -23,6 +24,7 @@ async function getDashboardData() {
   const { data: sessions } = await supabase
     .from("sessions")
     .select("id, title, category_id, created_at, categories(name)")
+    .eq("is_complete", true)
     .order("created_at", { ascending: false });
 
   if (!sessions || sessions.length === 0) {
@@ -89,6 +91,20 @@ async function getCategories() {
   return data ?? [];
 }
 
+// ─── 미완료 세션 fetching (이어하기) ──────────────────────────────────────────
+
+async function getIncompleteSessions() {
+  const { data } = await supabase
+    .from("sessions")
+    .select("id, title, category_id, score, created_at, categories(name)")
+    .eq("is_complete", false)
+    .eq("mode", "chat")
+    .order("created_at", { ascending: false })
+    .limit(3);
+
+  return data ?? [];
+}
+
 // ─── 통계 카드 정의 ────────────────────────────────────────────────────────────
 
 function statCards({ totalDays, streak, weekSessions, level }) {
@@ -106,7 +122,8 @@ export default async function HomePage() {
   const [
     { totalDays, streak, weekSessions, level, levelProgress, recentSessions },
     categories,
-  ] = await Promise.all([getDashboardData(), getCategories()]);
+    incompleteSessions,
+  ] = await Promise.all([getDashboardData(), getCategories(), getIncompleteSessions()]);
 
   const stats = statCards({ totalDays, streak, weekSessions, level });
 
@@ -118,6 +135,43 @@ export default async function HomePage() {
         <h1 className="text-2xl font-bold">안녕하세요! 👋</h1>
         <p className="text-muted-foreground mt-1">오늘도 꾸준히 성장해볼까요?</p>
       </div>
+
+      {/* 이어하기 카드 (미완료 세션 있을 때만) */}
+      {incompleteSessions.length > 0 && (
+        <section>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+            이어하기
+          </h2>
+          <div className="space-y-2">
+            {incompleteSessions.map((session) => (
+              <Link
+                key={session.id}
+                href={`/study/chat?session_id=${session.id}&category=${encodeURIComponent(session.category_id ?? "")}&title=${encodeURIComponent(session.title ?? "")}`}
+              >
+                <Card className="cursor-pointer hover:ring-primary/40 hover:ring-2 transition-all border-primary/20 bg-primary/5">
+                  <CardContent className="flex items-center gap-4">
+                    <div className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center bg-primary/10">
+                      <PlayCircle size={18} className="text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{session.title ?? "학습 세션"}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {session.categories?.name ?? "—"} · {new Date(session.created_at).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })} 중단
+                      </p>
+                    </div>
+                    <div className="shrink-0 flex items-center gap-2">
+                      {session.score != null && (
+                        <span className="text-xs font-semibold text-primary">{session.score}점</span>
+                      )}
+                      <ChevronRight size={14} className="text-muted-foreground" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* 통계 카드 4개 */}
       <section>
