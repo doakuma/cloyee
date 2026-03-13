@@ -86,8 +86,14 @@ export async function POST(request) {
   try {
     parsed = parseClaudeJson(raw);
   } catch (err) {
-    console.error("[review] JSON 파싱 실패:", err.message);
-    return Response.json({ error: "Claude 응답을 파싱할 수 없습니다.", raw }, { status: 502 });
+    console.error("[review] JSON 파싱 실패 — fallback 적용:", err.message);
+    return Response.json({
+      message: raw,
+      score: 0,
+      feedback: "",
+      is_complete: false,
+      summary: "",
+    });
   }
 
   return Response.json({
