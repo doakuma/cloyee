@@ -1,65 +1,232 @@
-import Image from "next/image";
+import Link from "next/link";
+import { supabase } from "@/lib/supabase";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import {
+  CalendarDays,
+  Flame,
+  BookOpen,
+  Trophy,
+  ChevronRight,
+} from "lucide-react";
 
-export default function Home() {
+
+
+// ─── 데이터 fetching ──────────────────────────────────────────────────────────
+
+async function getDashboardData() {
+  const { data: sessions } = await supabase
+    .from("sessions")
+    .select("id, title, category, created_at")
+    .order("created_at", { ascending: false });
+
+  if (!sessions || sessions.length === 0) {
+    return { totalDays: 0, streak: 0, weekSessions: 0, level: 1, levelProgress: 0, recentSessions: [] };
+  }
+
+  // 총 학습일 (날짜 중복 제거)
+  const dateKey = (d) => {
+    const dt = new Date(d);
+    return `${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`;
+  };
+  const uniqueDates = new Set(sessions.map((s) => dateKey(s.created_at)));
+  const totalDays = uniqueDates.size;
+
+  // 이번 주 세션
+  const startOfWeek = new Date();
+  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+  startOfWeek.setHours(0, 0, 0, 0);
+  const weekSessions = sessions.filter((s) => new Date(s.created_at) >= startOfWeek).length;
+
+  // 레벨 (5회당 1레벨)
+  const level = Math.floor(sessions.length / 5) + 1;
+  const levelProgress = sessions.length % 5; // 현재 레벨 내 진행 횟수
+
+  // 연속 streak 계산
+  const sortedDates = [...uniqueDates]
+    .map((s) => {
+      const [y, m, d] = s.split("-").map(Number);
+      return new Date(y, m, d);
+    })
+    .sort((a, b) => b - a);
+
+  let streak = 0;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let cursor = new Date(today);
+
+  for (const date of sortedDates) {
+    if (date.getTime() === cursor.getTime()) {
+      streak++;
+      cursor.setDate(cursor.getDate() - 1);
+    } else if (date < cursor) {
+      break;
+    }
+  }
+
+  return {
+    totalDays,
+    streak,
+    weekSessions,
+    level,
+    levelProgress,
+    recentSessions: sessions.slice(0, 3),
+  };
+}
+
+// ─── 카테고리 fetching ────────────────────────────────────────────────────────
+
+async function getCategories() {
+  const { data } = await supabase
+    .from("categories")
+    .select("id, name, icon, is_default");
+
+  return data ?? [];
+}
+
+// ─── 통계 카드 정의 ────────────────────────────────────────────────────────────
+
+function statCards({ totalDays, streak, weekSessions, level }) {
+  return [
+    { label: "총 학습일", value: `${totalDays}일`, icon: CalendarDays, color: "text-blue-500" },
+    { label: "연속 학습", value: `${streak}일`, icon: Flame, color: "text-orange-500" },
+    { label: "이번 주 세션", value: `${weekSessions}회`, icon: BookOpen, color: "text-green-500" },
+    { label: "현재 레벨", value: `Lv.${level}`, icon: Trophy, color: "text-yellow-500" },
+  ];
+}
+
+// ─── 컴포넌트 ──────────────────────────────────────────────────────────────────
+
+export default async function HomePage() {
+  const [
+    { totalDays, streak, weekSessions, level, levelProgress, recentSessions },
+    categories,
+  ] = await Promise.all([getDashboardData(), getCategories()]);
+
+  const stats = statCards({ totalDays, streak, weekSessions, level });
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.js file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="p-8 max-w-5xl mx-auto space-y-10">
+
+      {/* 헤더 */}
+      <div>
+        <h1 className="text-2xl font-bold">안녕하세요! 👋</h1>
+        <p className="text-muted-foreground mt-1">오늘도 꾸준히 성장해볼까요?</p>
+      </div>
+
+      {/* 통계 카드 4개 */}
+      <section>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+          나의 현황
+        </h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {stats.map(({ label, value, icon: Icon, color }) => (
+            <Card key={label}>
+              <CardHeader className="pb-2">
+                <CardDescription className="flex items-center gap-1.5">
+                  <Icon size={14} className={color} />
+                  {label}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold tracking-tight">{value}</p>
+                {label === "현재 레벨" && (
+                  <div className="mt-2">
+                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                      <span>{levelProgress}/5회</span>
+                      <span>Lv.{level + 1}까지</span>
+                    </div>
+                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all"
+                        style={{ width: `${(levelProgress / 5) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      {/* 카테고리 카드 4개 */}
+      <section>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+          학습 시작하기
+        </h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {categories.length === 0 ? (
+            <p className="col-span-4 text-sm text-muted-foreground">카테고리가 없습니다.</p>
+          ) : (
+            categories.map((cat, i) => (
+              <Link key={cat.id} href={`/study?category=${cat.id}`}>
+                <Card className="h-full cursor-pointer hover:ring-primary/40 hover:ring-2 transition-all">
+                  <CardHeader>
+                    <span className="text-2xl">{cat.icon}</span>
+                    <CardTitle className="mt-2">{cat.name}</CardTitle>
+                  </CardHeader>
+                </Card>
+              </Link>
+            ))
+          )}
         </div>
-      </main>
+      </section>
+
+      {/* 최근 학습 기록 3개 */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            최근 학습
+          </h2>
+          <Link
+            href="/history"
+            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5 transition-colors"
+          >
+            전체 보기 <ChevronRight size={14} />
+          </Link>
+        </div>
+
+        {recentSessions.length === 0 ? (
+          <Card>
+            <CardContent className="py-10 text-center text-muted-foreground text-sm">
+              아직 학습 기록이 없습니다.{" "}
+              <Link href="/study" className="underline underline-offset-2 hover:text-foreground">
+                첫 학습을 시작해보세요!
+              </Link>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {recentSessions.map((session) => (
+              <Link key={session.id} href={`/history/${session.id}`}>
+                <Card size="sm" className="hover:ring-primary/30 hover:ring-2 transition-all cursor-pointer">
+                  <CardContent className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-sm">{session.title ?? "학습 세션"}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{session.category}</p>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>
+                        {new Date(session.created_at).toLocaleDateString("ko-KR", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                      <ChevronRight size={14} />
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

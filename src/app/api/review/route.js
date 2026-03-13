@@ -1,0 +1,105 @@
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+function buildSystemPrompt(category, title, code, language) {
+  return `당신은 시니어 개발자이자 코드 리뷰 전문가 Cloyee입니다.
+대화형으로 코드 리뷰를 진행하며, 개발자가 스스로 코드를 개선할 수 있도록 이끌어줍니다.
+
+## 리뷰 대상
+- 카테고리: ${category}
+- 주제: ${title}
+- 언어: ${language}
+
+## 리뷰할 코드
+\`\`\`${language}
+${code}
+\`\`\`
+
+## 리뷰 방식
+- 첫 응답: 전반적인 코드 품질 평가와 좋은 점 먼저 언급
+- 이후: 개선 사항을 하나씩 구체적으로 대화형으로 제시
+- 개선 이유와 방법을 친절하게 설명하고, 개선된 코드 예시 제공
+- 개발자의 질문에 적극적으로 답변
+
+## 완료 기준
+- 주요 개선 사항을 모두 다루었을 때
+- 개발자가 충분히 이해했다고 판단될 때
+
+## 응답 규칙
+반드시 아래 JSON 형식으로만 응답하세요. JSON 외 다른 텍스트는 절대 포함하지 마세요.
+
+\`\`\`json
+{
+  "message": "리뷰 메시지 (마크다운 사용 가능, 코드 예시 포함 가능)",
+  "score": 0~100 사이 정수 (코드 품질 점수),
+  "feedback": "이번 응답의 핵심을 한 줄로 요약",
+  "is_complete": true 또는 false,
+  "summary": "is_complete가 true일 때만 작성. 전체 리뷰 요약 및 개선 포인트 정리. false면 빈 문자열"
+}
+\`\`\`
+
+## 기타
+- 한국어로 대화합니다
+- 비판보다 건설적인 피드백을 제공합니다`;
+}
+
+export async function POST(request) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  console.log("[review] ANTHROPIC_API_KEY 로드 여부:", apiKey ? `설정됨 (sk-...${apiKey.slice(-4)})` : "❌ 없음");
+
+  const { category, title, code, language, messages, message } = await request.json();
+
+  if (!message?.trim()) {
+    return Response.json({ error: "message가 필요합니다." }, { status: 400 });
+  }
+  if (!code?.trim()) {
+    return Response.json({ error: "code가 필요합니다." }, { status: 400 });
+  }
+
+  const conversationMessages = [
+    ...(messages ?? []),
+    { role: "user", content: message },
+  ];
+
+  let raw;
+  try {
+    const response = await client.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 2048,
+      system: buildSystemPrompt(category ?? "일반", title ?? "코드 리뷰", code, language ?? "plaintext"),
+      messages: conversationMessages,
+    });
+    raw = response.content[0].text;
+    console.log("[review] Claude 응답 수신 — 길이:", raw.length);
+  } catch (err) {
+    console.error("[review] ❌ Claude API 오류");
+    console.error("  name   :", err.name);
+    console.error("  message:", err.message);
+    console.error("  status :", err.status);
+    console.error("  body   :", JSON.stringify(err.error ?? err.body ?? null, null, 2));
+    return Response.json({ error: "Claude API 호출에 실패했습니다.", detail: err.message }, { status: 502 });
+  }
+
+  const jsonMatch = raw.match(/```json\s*([\s\S]*?)```/) ?? raw.match(/(\{[\s\S]*\})/);
+  if (!jsonMatch) {
+    console.error("[review] JSON 파싱 실패. raw:", raw);
+    return Response.json({ error: "Claude 응답을 파싱할 수 없습니다.", raw }, { status: 502 });
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(jsonMatch[1].trim());
+  } catch (err) {
+    console.error("[review] JSON.parse 실패:", jsonMatch[1]);
+    return Response.json({ error: "JSON 파싱에 실패했습니다.", raw }, { status: 502 });
+  }
+
+  return Response.json({
+    message: parsed.message ?? "",
+    score: parsed.score ?? 0,
+    feedback: parsed.feedback ?? "",
+    is_complete: parsed.is_complete ?? false,
+    summary: parsed.summary ?? "",
+  });
+}
