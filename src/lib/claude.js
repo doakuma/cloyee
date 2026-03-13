@@ -15,12 +15,13 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
  * @throws {Error} 모든 시도 실패 시
  */
 export function parseClaudeJson(raw) {
-  // 1. ```json ... ``` 블록
-  const jsonBlock = raw.match(/```json\s*([\s\S]*?)```/);
+  // 1. ```json ... ``` 블록 — 탐욕적(greedy)으로 마지막 ``` 까지 매칭
+  //    (message 값 안에 ```javascript 등 중첩 코드블록이 있어도 올바른 위치까지 잡음)
+  const jsonBlock = raw.match(/```json\s*([\s\S]*)```/);
   if (jsonBlock) return JSON.parse(jsonBlock[1].trim());
 
-  // 2. ``` ... ``` 블록 (언어 미지정)
-  const codeBlock = raw.match(/```\s*([\s\S]*?)```/);
+  // 2. ``` ... ``` 블록 (언어 미지정) — 동일하게 greedy
+  const codeBlock = raw.match(/```\s*([\s\S]*)```/);
   if (codeBlock) return JSON.parse(codeBlock[1].trim());
 
   // 3. 앞뒤 공백 제거 후 직접 파싱

@@ -93,6 +93,13 @@ function ChatView() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
+  // 로딩 완료 후 입력창 포커스 (re-render 이후 textarea가 enabled된 시점에 실행)
+  useEffect(() => {
+    if (!loading && !isComplete) {
+      inputRef.current?.focus();
+    }
+  }, [loading, isComplete]);
+
   // 페이지 진입 시 Cloyee 첫 메시지 요청
   useEffect(() => {
     callApi([], "학습을 시작해주세요.");
@@ -143,7 +150,6 @@ function ChatView() {
       ]);
     } finally {
       setLoading(false);
-      inputRef.current?.focus();
     }
   }
 
