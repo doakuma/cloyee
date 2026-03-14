@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import {
   Card,
   CardContent,
@@ -20,12 +20,16 @@ import IncompleteSessions from "@/components/home/IncompleteSessions";
 
 // ─── 데이터 fetching ──────────────────────────────────────────────────────────
 
-async function getDashboardData() {
-  const { data: sessions } = await supabase
+async function getDashboardData(supabase, userId) {
+  let query = supabase
     .from("sessions")
     .select("id, title, category_id, created_at, categories(name)")
     .eq("is_complete", true)
     .order("created_at", { ascending: false });
+
+  if (userId) query = query.eq("user_id", userId);
+
+  const { data: sessions } = await query;
 
   if (!sessions || sessions.length === 0) {
     return { totalDays: 0, streak: 0, weekSessions: 0, level: 1, levelProgress: 0, recentSessions: [] };
@@ -83,7 +87,7 @@ async function getDashboardData() {
 
 // ─── 카테고리 fetching ────────────────────────────────────────────────────────
 
-async function getCategories() {
+async function getCategories(supabase) {
   const { data } = await supabase
     .from("categories")
     .select("id, name, icon, is_default");
@@ -93,8 +97,8 @@ async function getCategories() {
 
 // ─── 미완료 세션 fetching (이어하기) ──────────────────────────────────────────
 
-async function getIncompleteSessions() {
-  const { data } = await supabase
+async function getIncompleteSessions(supabase, userId) {
+  let query = supabase
     .from("sessions")
     .select("id, title, category_id, score, created_at, categories(name)")
     .eq("is_complete", false)
@@ -103,6 +107,9 @@ async function getIncompleteSessions() {
     .order("created_at", { ascending: false })
     .limit(3);
 
+  if (userId) query = query.eq("user_id", userId);
+
+  const { data } = await query;
   return data ?? [];
 }
 
@@ -120,11 +127,19 @@ function statCards({ totalDays, streak, weekSessions, level }) {
 // ─── 컴포넌트 ──────────────────────────────────────────────────────────────────
 
 export default async function HomePage() {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const userId = user?.id ?? null;
+
   const [
     { totalDays, streak, weekSessions, level, levelProgress, recentSessions },
     categories,
     incompleteSessions,
-  ] = await Promise.all([getDashboardData(), getCategories(), getIncompleteSessions()]);
+  ] = await Promise.all([
+    getDashboardData(supabase, userId),
+    getCategories(supabase),
+    getIncompleteSessions(supabase, userId),
+  ]);
 
   const stats = statCards({ totalDays, streak, weekSessions, level });
 

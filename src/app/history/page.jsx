@@ -227,10 +227,17 @@ export default function HistoryPage() {
     let cancelled = false;
 
     async function fetchSessions() {
-      const { data, error } = await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id ?? null;
+
+      let query = supabase
         .from("sessions")
         .select("id, title, category_id, mode, score, created_at, categories(name)")
         .order("created_at", { ascending: false });
+
+      if (userId) query = query.eq("user_id", userId);
+
+      const { data, error } = await query;
 
       if (cancelled) return;
       if (!error && data) setSessions(data);
