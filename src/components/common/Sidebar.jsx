@@ -16,14 +16,44 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden md:flex w-64 min-h-screen flex-col border-r border-border bg-background">
-      {/* 로고 */}
-      <div className="flex h-16 items-center px-6 border-b border-border">
-        <span className="text-lg font-bold tracking-tight">Cloyee</span>
-      </div>
+    <>
+      {/* 데스크톱 사이드바 */}
+      <aside className="hidden md:flex w-64 min-h-screen flex-col border-r border-border bg-background">
+        {/* 로고 */}
+        <div className="flex h-16 items-center px-6 border-b border-border">
+          <span className="text-lg font-bold tracking-tight">Cloyee</span>
+        </div>
 
-      {/* 네비게이션 */}
-      <nav className="flex flex-col gap-1 p-3 flex-1">
+        {/* 네비게이션 */}
+        <nav className="flex flex-col gap-1 p-3 flex-1">
+          {navItems.map(({ href, label, icon: Icon }) => {
+            const isActive = pathname === href || (href !== "/" && pathname.startsWith(href));
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                )}
+              >
+                <Icon size={18} />
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* 하단 */}
+        <div className="p-4 border-t border-border">
+          <p className="text-xs text-muted-foreground text-center">Cloyee v0.1</p>
+        </div>
+      </aside>
+
+      {/* 모바일 하단 탭바 */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-stretch border-t border-border bg-background">
         {navItems.map(({ href, label, icon: Icon }) => {
           const isActive = pathname === href || (href !== "/" && pathname.startsWith(href));
           return (
@@ -31,23 +61,18 @@ export default function Sidebar() {
               key={href}
               href={href}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                "flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-medium transition-colors",
                 isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <Icon size={18} />
+              <Icon size={20} />
               {label}
             </Link>
           );
         })}
       </nav>
-
-      {/* 하단 */}
-      <div className="p-4 border-t border-border">
-        <p className="text-xs text-muted-foreground text-center">Cloyee v0.1</p>
-      </div>
-    </aside>
+    </>
   );
 }

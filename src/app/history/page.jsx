@@ -134,16 +134,24 @@ export default function HistoryPage() {
   const [categoryFilter, setCategoryFilter] = useState("all");
 
   useEffect(() => {
+    let cancelled = false;
+
     async function fetchSessions() {
       const { data, error } = await supabase
         .from("sessions")
         .select("id, title, category_id, mode, score, created_at, categories(name)")
         .order("created_at", { ascending: false });
 
+      if (cancelled) return;
       if (!error && data) setSessions(data);
       setLoading(false);
     }
+
     fetchSessions();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // 카테고리 목록 (세션 데이터에서 추출)

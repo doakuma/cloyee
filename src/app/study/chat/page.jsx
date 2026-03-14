@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Send, Loader2, CheckCircle2, PauseCircle } from "lucide-react";
 import MarkdownMessage from "@/components/common/MarkdownMessage";
 
+const isDev = process.env.NODE_ENV !== "production";
+
 // ─── 메시지 버블 ───────────────────────────────────────────────────────────────
 
 function CloyeeMessage({ content, feedback, score }) {
@@ -87,6 +89,7 @@ function ChatView() {
   const [pausing, setPausing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
+  const [saveError, setSaveError] = useState("");
   const [categoryName, setCategoryName] = useState(category); // UUID 대신 표시할 이름
 
   const bottomRef = useRef(null);
@@ -148,7 +151,7 @@ function ChatView() {
 
   // Supabase에서 대화 복원 (이어하기)
   async function loadSession(id) {
-    console.log("[loadSession] 시작 — session_id:", id);
+    isDev && console.log("[loadSession] 시작 — session_id:", id);
     setLoading(true);
     try {
       const { data: review, error } = await supabase
@@ -157,7 +160,7 @@ function ChatView() {
         .eq("session_id", id)
         .maybeSingle();
 
-      console.log("[loadSession] 결과 — error:", error?.message ?? "없음", "| messages 길이:", review?.messages?.length ?? 0);
+      isDev && console.log("[loadSession] 결과 — error:", error?.message ?? "없음", "| messages 길이:", review?.messages?.length ?? 0);
 
       if (error) {
         console.error("[loadSession] Supabase 오류:", error.message, "| code:", error.code);
@@ -166,9 +169,9 @@ function ChatView() {
       if (!error && review?.messages?.length > 0) {
         setMessages(review.messages);
         setLoading(false);
-        console.log("[loadSession] 복원 완료");
+        isDev && console.log("[loadSession] 복원 완료");
       } else {
-        console.warn("[loadSession] messages 없음 — 새 대화 시작");
+        isDev && console.warn("[loadSession] messages 없음 — 새 대화 시작");
         setLoading(false);
         callApi([], "학습을 이어서 시작해주세요.");
       }
@@ -191,7 +194,7 @@ function ChatView() {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        console.error("[chat] API 오류:", res.status, errData);
+        isDev && console.error("[chat] API 오류:", res.status, errData);
         throw new Error(errData.error ?? "API 오류");
       }
 
@@ -214,9 +217,13 @@ function ChatView() {
           { role: "user", content: userMessage },
           { role: "assistant", content: data.message },
         ];
-        await saveSession(data.summary, data.score, allMessages);
-        sessionStorage.removeItem(SESSION_KEY);
-        setTimeout(() => router.push("/history"), 2000);
+        const saved = await saveSession(data.summary, data.score, allMessages);
+        if (saved) {
+          sessionStorage.removeItem(SESSION_KEY);
+          setTimeout(() => router.push("/history"), 2000);
+        } else {
+          setSaveError("학습 기록 저장에 실패했습니다. 잠시 후 다시 시도해주세요.");
+        }
       }
     } catch (err) {
       console.error(err);
@@ -248,34 +255,42 @@ function ChatView() {
     }
   }
 
-  // 완료 시 세션 저장 (신규 생성 or 기존 세션 업데이트)
+  // 완료 시 세션 저장 (신규 생성 or 기존 세션 업데이트) — 성공 시 true, 실패 시 false 반환
   async function saveSession(summary, score, allMessages) {
-    if (sessionId) {
-      // 이어하기 → 기존 세션 업데이트
-      const { error: sessErr } = await supabase
-        .from("sessions")
-        .update({ is_complete: true, summary, score })
-        .eq("id", sessionId);
-      if (sessErr) { console.error("[chat] 세션 업데이트 실패:", sessErr.message); return; }
+    try {
+      if (sessionId) {
+        // 이어하기 → 기존 세션 업데이트
+        const { error: sessErr } = await supabase
+          .from("sessions")
+          .update({ is_complete: true, summary, score })
+          .eq("id", sessionId);
+        if (sessErr) { console.error("[chat] 세션 업데이트 실패:", sessErr.message); return false; }
 
-      await supabase
-        .from("reviews")
-        .update({ messages: allMessages })
-        .eq("session_id", sessionId);
-    } else {
-      // 일반 완료 → 신규 세션 생성
-      const { data, error } = await supabase
-        .from("sessions")
-        .insert({ category_id: category, title, summary, score, mode: "chat", is_complete: true })
-        .select("id")
-        .single();
-      if (error) { console.error("[chat] 세션 저장 실패:", error.message); return; }
+        const { error: revErr } = await supabase
+          .from("reviews")
+          .update({ messages: allMessages })
+          .eq("session_id", sessionId);
+        if (revErr) { console.error("[chat] reviews 업데이트 실패:", revErr.message); return false; }
+      } else {
+        // 일반 완료 → 신규 세션 생성
+        const { data, error } = await supabase
+          .from("sessions")
+          .insert({ category_id: category, title, summary, score, mode: "chat", is_complete: true })
+          .select("id")
+          .single();
+        if (error) { console.error("[chat] 세션 저장 실패:", error.message); return false; }
 
-      await supabase.from("reviews").insert({
-        session_id: data.id,
-        code: null,
-        messages: allMessages,
-      });
+        const { error: revErr } = await supabase.from("reviews").insert({
+          session_id: data.id,
+          code: null,
+          messages: allMessages,
+        });
+        if (revErr) { console.error("[chat] reviews insert 실패:", revErr.message); return false; }
+      }
+      return true;
+    } catch (err) {
+      console.error("[chat] saveSession 예외:", err.message);
+      return false;
     }
   }
 
@@ -283,6 +298,7 @@ function ChatView() {
   async function pauseSession() {
     if (pausing || loading || isComplete || messages.length === 0) return;
     setPausing(true);
+    setSaveError("");
     try {
       const currentScore = messages.findLast((m) => m.role === "assistant")?.score ?? 0;
       // score/feedback 포함해서 저장해야 복원 시 점수 바가 유지됨
@@ -293,7 +309,9 @@ function ChatView() {
         ...(feedback && { feedback }),
       }));
 
-      console.log("[pause] apiMessages 길이:", apiMessages.length, "| 첫 항목:", apiMessages[0]);
+      isDev && console.log("[pause] apiMessages 길이:", apiMessages.length, "| 첫 항목:", apiMessages[0]);
+
+      let pauseSaved = false;
 
       if (sessionId) {
         // 이어하기 중 다시 일시정지 → 기존 세션/리뷰 업데이트
@@ -301,14 +319,18 @@ function ChatView() {
           .from("sessions")
           .update({ score: currentScore })
           .eq("id", sessionId);
-        if (sessErr) { console.error("[pause] sessions 업데이트 실패:", sessErr.message); return; }
-
-        const { error: revErr } = await supabase
-          .from("reviews")
-          .update({ messages: apiMessages })
-          .eq("session_id", sessionId);
-        if (revErr) console.error("[pause] reviews 업데이트 실패:", revErr.message);
-        else console.log("[pause] reviews 업데이트 성공 (session_id:", sessionId, ")");
+        if (sessErr) { console.error("[pause] sessions 업데이트 실패:", sessErr.message); }
+        else {
+          const { error: revErr } = await supabase
+            .from("reviews")
+            .update({ messages: apiMessages })
+            .eq("session_id", sessionId);
+          if (revErr) console.error("[pause] reviews 업데이트 실패:", revErr.message);
+          else {
+            isDev && console.log("[pause] reviews 업데이트 성공 (session_id:", sessionId, ")");
+            pauseSaved = true;
+          }
+        }
       } else {
         // 신규 세션 중간 저장
         const { data, error: sessErr } = await supabase
@@ -316,20 +338,31 @@ function ChatView() {
           .insert({ category_id: category, title, summary: "", score: currentScore, mode: "chat", is_complete: false })
           .select("id")
           .single();
-        if (sessErr) { console.error("[pause] sessions insert 실패:", sessErr.message); return; }
-        console.log("[pause] sessions insert 성공 — session id:", data.id);
-
-        const { error: revErr } = await supabase.from("reviews").insert({
-          session_id: data.id,
-          messages: apiMessages,
-        });
-        if (revErr) console.error("[pause] reviews insert 실패:", revErr.message, "| code:", revErr.code);
-        else console.log("[pause] reviews insert 성공");
+        if (sessErr) { console.error("[pause] sessions insert 실패:", sessErr.message); }
+        else {
+          isDev && console.log("[pause] sessions insert 성공 — session id:", data.id);
+          const { error: revErr } = await supabase.from("reviews").insert({
+            session_id: data.id,
+            messages: apiMessages,
+          });
+          if (revErr) console.error("[pause] reviews insert 실패:", revErr.message, "| code:", revErr.code);
+          else {
+            isDev && console.log("[pause] reviews insert 성공");
+            pauseSaved = true;
+          }
+        }
       }
 
-      sessionStorage.removeItem(SESSION_KEY);
-      router.push("/");
-    } finally {
+      if (pauseSaved) {
+        sessionStorage.removeItem(SESSION_KEY);
+        router.push("/");
+      } else {
+        setSaveError("진행 상황 저장에 실패했습니다. 다시 시도해주세요.");
+        setPausing(false);
+      }
+    } catch (err) {
+      console.error("[pause] 예외:", err.message);
+      setSaveError("진행 상황 저장 중 오류가 발생했습니다. 다시 시도해주세요.");
       setPausing(false);
     }
   }
@@ -398,6 +431,12 @@ function ChatView() {
 
         {loading && <ThinkingBubble />}
         {isComplete && <CompleteBanner score={finalScore} />}
+        {saveError && (
+          <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-800 rounded-xl px-5 py-4 text-sm">
+            <span className="font-semibold">저장 실패</span>
+            <span>{saveError}</span>
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
 

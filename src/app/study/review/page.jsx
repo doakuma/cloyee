@@ -102,13 +102,18 @@ function CodeInputPanel({ code, setCode, language, setLanguage, onStart, loading
       </div>
 
       {/* 코드 textarea */}
-      <textarea
-        className="w-full flex-1 min-h-[400px] resize-none rounded-xl border border-input bg-background px-4 py-3 text-sm font-mono outline-none focus:ring-2 focus:ring-ring/50 leading-relaxed"
-        placeholder={`리뷰받을 ${LANGUAGES.find(l => l.value === language)?.label ?? ""} 코드를 붙여넣으세요…`}
-        value={code}
-        onChange={(e) => setCode(e.target.value)}
-        spellCheck={false}
-      />
+      <div className="relative">
+        <textarea
+          className="w-full flex-1 min-h-[400px] resize-none rounded-xl border border-input bg-background px-4 py-3 text-sm font-mono outline-none focus:ring-2 focus:ring-ring/50 leading-relaxed"
+          placeholder={`리뷰받을 ${LANGUAGES.find(l => l.value === language)?.label ?? ""} 코드를 붙여넣으세요…`}
+          value={code}
+          onChange={(e) => setCode(e.target.value.slice(0, 50000))}
+          spellCheck={false}
+        />
+        <span className={`absolute bottom-3 right-3 text-xs select-none ${code.length >= 50000 ? "text-red-500 font-semibold" : "text-muted-foreground"}`}>
+          {code.length.toLocaleString()} / 50,000
+        </span>
+      </div>
 
       <button
         onClick={onStart}
@@ -157,6 +162,7 @@ function ReviewView() {
   const [loading, setLoading] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
+  const [saveError, setSaveError] = useState("");
 
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
@@ -202,11 +208,18 @@ function ReviewView() {
       if (data.is_complete) {
         setIsComplete(true);
         setFinalScore(data.score);
-        await saveSession(
-          data.summary,
-          [...history, { role: "user", content: userMessage }, { role: "assistant", content: data.message }]
-        );
-        setTimeout(() => router.push("/history"), 2000);
+        const allMessages = [
+          ...history,
+          { role: "user", content: userMessage },
+          { role: "assistant", content: data.message },
+        ];
+        // data.score를 직접 전달해 finalScore 클로저 문제 방지
+        const saved = await saveSession(data.summary, data.score, allMessages);
+        if (saved) {
+          setTimeout(() => router.push("/history"), 2000);
+        } else {
+          setSaveError("리뷰 기록 저장에 실패했습니다. 잠시 후 다시 시도해주세요.");
+        }
       }
     } catch (err) {
       console.error(err);
@@ -247,25 +260,34 @@ function ReviewView() {
     }
   }
 
-  async function saveSession(summary, allMessages) {
-    const { data, error } = await supabase
-      .from("sessions")
-      .insert({
-        category_id: category,
-        title: `${LANGUAGES.find(l => l.value === language)?.label ?? language} 코드 리뷰`,
-        summary,
-        score: finalScore,
-        mode: "review",
-      })
-      .select("id")
-      .single();
-    if (error) { console.error("[review] 세션 저장 실패:", error.message); return; }
+  // 성공 시 true, 실패 시 false 반환 — score를 명시적 파라미터로 받아 클로저 문제 방지
+  async function saveSession(summary, score, allMessages) {
+    try {
+      const { data, error } = await supabase
+        .from("sessions")
+        .insert({
+          category_id: category,
+          title: `${LANGUAGES.find(l => l.value === language)?.label ?? language} 코드 리뷰`,
+          summary,
+          score,
+          mode: "review",
+        })
+        .select("id")
+        .single();
+      if (error) { console.error("[review] 세션 저장 실패:", error.message); return false; }
 
-    await supabase.from("reviews").insert({
-      session_id: data.id,
-      code,
-      messages: allMessages,
-    });
+      const { error: revErr } = await supabase.from("reviews").insert({
+        session_id: data.id,
+        code,
+        messages: allMessages,
+      });
+      if (revErr) { console.error("[review] reviews insert 실패:", revErr.message); return false; }
+
+      return true;
+    } catch (err) {
+      console.error("[review] saveSession 예외:", err.message);
+      return false;
+    }
   }
 
   const lastScore = messages.findLast((m) => m.role === "assistant")?.score;
@@ -342,6 +364,12 @@ function ReviewView() {
               )}
               {loading && <ThinkingBubble />}
               {isComplete && <CompleteBanner score={finalScore} />}
+              {saveError && (
+                <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3 text-sm mx-2">
+                  <span className="font-semibold">저장 실패</span>
+                  <span>{saveError}</span>
+                </div>
+              )}
               <div ref={bottomRef} />
             </div>
 

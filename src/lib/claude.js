@@ -1,5 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 
+export const DEFAULT_MODEL = process.env.CLAUDE_MODEL ?? "claude-sonnet-4-6";
+
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 /**
@@ -50,7 +52,7 @@ const SYSTEM_PROMPT = `당신은 친절한 코딩 학습 도우미입니다.
 
 export async function createChatCompletion(messages) {
   const response = await client.messages.create({
-    model: "claude-sonnet-4-6",
+    model: DEFAULT_MODEL,
     max_tokens: 2048,
     system: SYSTEM_PROMPT,
     messages,
@@ -61,7 +63,7 @@ export async function createChatCompletion(messages) {
 
 export async function createCodeReview(code) {
   const response = await client.messages.create({
-    model: "claude-sonnet-4-6",
+    model: DEFAULT_MODEL,
     max_tokens: 2048,
     system: SYSTEM_PROMPT,
     messages: [

@@ -1,7 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { parseClaudeJson } from "@/lib/claude";
+import { parseClaudeJson, DEFAULT_MODEL } from "@/lib/claude";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const isDev = process.env.NODE_ENV !== "production";
 
 function buildSystemPrompt(category, title) {
   return `당신은 소크라테스식 문답법으로 학습을 도와주는 AI 스터디메이트 Cloyee입니다.
@@ -41,10 +42,10 @@ function buildSystemPrompt(category, title) {
 export async function POST(request) {
   // API 키 로드 확인
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  console.log("[chat] ANTHROPIC_API_KEY 로드 여부:", apiKey ? `설정됨 (sk-...${apiKey.slice(-4)})` : "❌ 없음");
+  isDev && console.log("[chat] ANTHROPIC_API_KEY 로드 여부:", apiKey ? `설정됨 (sk-...${apiKey.slice(-4)})` : "❌ 없음");
 
   const { category, title, messages, message } = await request.json();
-  console.log("[chat] 요청 수신 — category:", category, "| title:", title, "| message:", message?.slice(0, 50));
+  isDev && console.log("[chat] 요청 수신 — category:", category, "| title:", title, "| message:", message?.slice(0, 50));
 
   if (!message?.trim()) {
     return Response.json({ error: "message가 필요합니다." }, { status: 400 });
@@ -57,15 +58,15 @@ export async function POST(request) {
 
   let raw;
   try {
-    console.log("[chat] Claude API 호출 시작 — 메시지 수:", conversationMessages.length);
+    isDev && console.log("[chat] Claude API 호출 시작 — 메시지 수:", conversationMessages.length);
     const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
+      model: DEFAULT_MODEL,
       max_tokens: 1024,
       system: buildSystemPrompt(category ?? "일반", title ?? "자유 학습"),
       messages: conversationMessages,
     });
     raw = response.content[0].text;
-    console.log("[chat] Claude 응답 수신 — 길이:", raw.length, "| 앞부분:", raw.slice(0, 100));
+    isDev && console.log("[chat] Claude 응답 수신 — 길이:", raw.length, "| 앞부분:", raw.slice(0, 100));
   } catch (err) {
     console.error("[chat] ❌ Claude API 오류");
     console.error("  name   :", err.name);
@@ -82,7 +83,7 @@ export async function POST(request) {
   } catch (err) {
     console.error("[chat] JSON 파싱 실패 — fallback 적용:", err.message);
     return Response.json({
-      message: raw,
+      message: "응답을 처리하는 중 문제가 발생했습니다. 다시 시도해주세요.",
       score: 0,
       feedback: "",
       is_complete: false,
@@ -90,9 +91,10 @@ export async function POST(request) {
     });
   }
 
+  const rawScore = parsed.score ?? 0;
   return Response.json({
     message: parsed.message ?? "",
-    score: parsed.score ?? 0,
+    score: Math.min(100, Math.max(0, rawScore)),
     feedback: parsed.feedback ?? "",
     is_complete: parsed.is_complete ?? false,
     summary: parsed.summary ?? "",
