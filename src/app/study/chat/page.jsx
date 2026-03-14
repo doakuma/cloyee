@@ -250,12 +250,6 @@ function ChatView() {
     await callApi(history, userContent);
   }
 
-  function handleKeyDown(e) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage(e);
-    }
-  }
 
   // 완료 시 세션 저장 (신규 생성 or 기존 세션 업데이트) — 성공 시 true, 실패 시 false 반환
   async function saveSession(summary, score, allMessages) {
@@ -456,7 +450,11 @@ function ChatView() {
           placeholder={isComplete ? "학습이 완료됐습니다." : "메시지를 입력하세요… (Enter로 전송)"}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+              sendMessage(e);
+            }
+          }}
           disabled={loading || isComplete}
         />
         <button
