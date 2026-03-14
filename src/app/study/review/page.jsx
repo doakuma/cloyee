@@ -163,9 +163,20 @@ function ReviewView() {
   const [isComplete, setIsComplete] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
   const [saveError, setSaveError] = useState("");
+  const [categoryName, setCategoryName] = useState(category);
 
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (!category || category === "일반") return;
+    supabase
+      .from("categories")
+      .select("name")
+      .eq("id", category)
+      .maybeSingle()
+      .then(({ data }) => { if (data?.name) setCategoryName(data.name); });
+  }, [category]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -305,7 +316,7 @@ function ReviewView() {
         </Link>
 
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <Badge variant="secondary" className="shrink-0">{category}</Badge>
+          <Badge variant="secondary" className="shrink-0">{categoryName}</Badge>
           <h1 className="text-sm font-semibold">코드 리뷰</h1>
         </div>
 
