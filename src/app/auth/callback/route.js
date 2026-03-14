@@ -24,10 +24,13 @@ export async function GET(request) {
       }
     );
     const { error } = await supabase.auth.exchangeCodeForSession(code);
+    console.log("[auth/callback] exchangeCodeForSession:", error ? `❌ ${error.message}` : "✅ 성공");
     if (!error) {
       return NextResponse.redirect(`${origin}${next}`);
     }
+    return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(error.message)}`);
   }
 
-  return NextResponse.redirect(`${origin}/login?error=auth`);
+  console.log("[auth/callback] ❌ code 파라미터 없음");
+  return NextResponse.redirect(`${origin}/login?error=no_code`);
 }
