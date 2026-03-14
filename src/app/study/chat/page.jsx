@@ -36,10 +36,12 @@ function CloyeeMessage({ content, feedback, score }) {
 
 function UserMessage({ content }) {
   return (
-    <div className="flex flex-col items-end gap-1 max-w-[75%] ml-auto">
-      <span className="text-xs text-muted-foreground font-medium px-1">나</span>
-      <div className="bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-4 py-3 text-sm whitespace-pre-wrap leading-relaxed">
-        {content}
+    <div className="flex justify-end w-full">
+      <div className="flex flex-col items-end gap-1 max-w-[75%]">
+        <span className="text-xs text-muted-foreground font-medium px-1">나</span>
+        <div className="bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-4 py-3 text-sm whitespace-pre-wrap leading-relaxed">
+          {content}
+        </div>
       </div>
     </div>
   );
@@ -384,7 +386,9 @@ function ChatView() {
 
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <Badge variant="secondary" className="shrink-0">{categoryName}</Badge>
-          <h1 className="text-sm font-semibold truncate">{title}</h1>
+          {title && title !== categoryName && (
+            <h1 className="text-sm font-semibold truncate">{title}</h1>
+          )}
         </div>
 
         {/* 오늘은 여기까지 버튼 */}
