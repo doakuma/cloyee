@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Send, Loader2, CheckCircle2, Play } from "lucide-react";
 import MarkdownMessage from "@/components/common/MarkdownMessage";
+import Editor from "@monaco-editor/react";
 
 // ─── 상수 ─────────────────────────────────────────────────────────────────────
 
@@ -20,6 +21,8 @@ const LANGUAGES = [
   { value: "go", label: "Go" },
   { value: "rust", label: "Rust" },
   { value: "sql", label: "SQL" },
+  { value: "css", label: "CSS" },
+  { value: "html", label: "HTML" },
   { value: "plaintext", label: "기타" },
 ];
 
@@ -101,19 +104,30 @@ function CodeInputPanel({ code, setCode, language, setLanguage, onStart, loading
         <span className="text-xs text-muted-foreground">언어를 선택하세요</span>
       </div>
 
-      {/* 코드 textarea */}
-      <div className="relative">
-        <textarea
-          className="w-full flex-1 min-h-[400px] resize-none rounded-xl border border-input bg-background px-4 py-3 text-sm font-mono outline-none focus:ring-2 focus:ring-ring/50 leading-relaxed"
-          placeholder={`리뷰받을 ${LANGUAGES.find(l => l.value === language)?.label ?? ""} 코드를 붙여넣으세요…`}
+      {/* Monaco Editor */}
+      <div className="rounded-xl overflow-hidden border border-input" style={{ minHeight: 300 }}>
+        <Editor
+          height="400px"
+          language={language}
           value={code}
-          onChange={(e) => setCode(e.target.value.slice(0, 50000))}
-          spellCheck={false}
+          theme="vs-dark"
+          onChange={(val) => setCode((val ?? "").slice(0, 50000))}
+          options={{
+            fontSize: 14,
+            fontFamily: "monospace",
+            lineNumbers: "on",
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            wordWrap: "on",
+            padding: { top: 12, bottom: 12 },
+          }}
         />
-        <span className={`absolute bottom-3 right-3 text-xs select-none ${code.length >= 50000 ? "text-red-500 font-semibold" : "text-muted-foreground"}`}>
+      </div>
+      {code.length >= 45000 && (
+        <span className={`text-xs select-none ${code.length >= 50000 ? "text-red-500 font-semibold" : "text-muted-foreground"}`}>
           {code.length.toLocaleString()} / 50,000
         </span>
-      </div>
+      )}
 
       <button
         onClick={onStart}
@@ -139,9 +153,24 @@ function CodePreviewPanel({ code, language }) {
         <span className="text-xs font-medium text-muted-foreground">제출한 코드</span>
         <Badge variant="outline" className="text-xs">{LANGUAGES.find(l => l.value === language)?.label ?? language}</Badge>
       </div>
-      <pre className="flex-1 overflow-auto rounded-xl border border-border bg-muted/50 px-4 py-3 text-xs font-mono leading-relaxed whitespace-pre-wrap break-all">
-        {code}
-      </pre>
+      <div className="flex-1 rounded-xl overflow-hidden border border-border min-h-0">
+        <Editor
+          height="100%"
+          language={language}
+          value={code}
+          theme="vs-dark"
+          options={{
+            fontSize: 14,
+            fontFamily: "monospace",
+            lineNumbers: "on",
+            readOnly: true,
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            wordWrap: "on",
+            padding: { top: 12, bottom: 12 },
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -262,13 +291,6 @@ function ReviewView() {
     const history = messages.map(({ role, content }) => ({ role, content }));
     setMessages((prev) => [...prev, { role: "user", content: userContent }]);
     await callApi(history, userContent);
-  }
-
-  function handleKeyDown(e) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage(e);
-    }
   }
 
   // 성공 시 true, 실패 시 false 반환 — score를 명시적 파라미터로 받아 클로저 문제 방지
@@ -396,7 +418,11 @@ function ReviewView() {
                 placeholder={isComplete ? "리뷰가 완료됐습니다." : "질문하거나 추가 설명을 요청하세요… (Enter 전송)"}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                    sendMessage(e);
+                  }
+                }}
                 disabled={loading || isComplete}
               />
               <button
