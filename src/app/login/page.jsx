@@ -1,10 +1,15 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 
-export default function LoginPage() {
+function LoginContent() {
+  const searchParams = useSearchParams();
+  const authError = searchParams.get("error");
+
   async function handleGoogleLogin() {
-    const { data, error } = await supabase.auth.signInWithOAuth({
+    await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
@@ -42,6 +47,13 @@ export default function LoginPage() {
           ))}
         </div>
 
+        {/* 에러 메시지 */}
+        {authError && (
+          <p className="text-sm text-destructive text-center">
+            로그인에 실패했습니다. 다시 시도해주세요.
+          </p>
+        )}
+
         {/* Google 로그인 버튼 */}
         <button
           onClick={handleGoogleLogin}
@@ -61,5 +73,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginContent />
+    </Suspense>
   );
 }
