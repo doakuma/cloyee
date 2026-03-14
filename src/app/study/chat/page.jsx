@@ -219,7 +219,7 @@ function ChatView() {
           { role: "user", content: userMessage },
           { role: "assistant", content: data.message },
         ];
-        const saved = await saveSession(data.summary, data.score, allMessages, data.user_id);
+        const saved = await saveSession(data.summary, data.score, allMessages);
         if (saved) {
           sessionStorage.removeItem(SESSION_KEY);
           setTimeout(() => router.push("/history"), 2000);
@@ -252,8 +252,11 @@ function ChatView() {
 
 
   // 완료 시 세션 저장 (신규 생성 or 기존 세션 업데이트) — 성공 시 true, 실패 시 false 반환
-  async function saveSession(summary, score, allMessages, userId) {
+  async function saveSession(summary, score, allMessages) {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id ?? null;
+
       if (sessionId) {
         // 이어하기 → 기존 세션 업데이트
         const { error: sessErr } = await supabase
@@ -296,6 +299,9 @@ function ChatView() {
     setPausing(true);
     setSaveError("");
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id ?? null;
+
       const currentScore = messages.findLast((m) => m.role === "assistant")?.score ?? 0;
       // score/feedback 포함해서 저장해야 복원 시 점수 바가 유지됨
       const apiMessages = messages.map(({ role, content, score, feedback }) => ({
@@ -331,7 +337,7 @@ function ChatView() {
         // 신규 세션 중간 저장
         const { data, error: sessErr } = await supabase
           .from("sessions")
-          .insert({ category_id: category, title, summary: null, score: currentScore, mode: "chat", is_complete: false })
+          .insert({ category_id: category, title, summary: null, score: currentScore, mode: "chat", is_complete: false, user_id: userId })
           .select("id")
           .single();
         if (sessErr) { console.error("[pause] sessions insert 실패:", sessErr.message); }
