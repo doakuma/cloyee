@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(cd \"/c/Private/2026/withCloyee/01 grabWithCloyee/cloyee\" && pnpm add react-markdown)",
-      "Bash(git -C \"C:/Private/2026/withCloyee/01 grabWithCloyee/cloyee\" ls-files | grep -i env)"
+      "Bash(git -C \"C:/Private/2026/withCloyee/01 grabWithCloyee/cloyee\" ls-files | grep -i env)",
+      "Bash(cd \"C:\\\\Private\\\\2026\\\\withCloyee\\\\01 grabWithCloyee\\\\cloyee\" && pnpm dlx shadcn@latest add alert-dialog dropdown-menu --yes 2>&1)",
+      "Bash(cd \"C:\\\\Private\\\\2026\\\\withCloyee\\\\01 grabWithCloyee\\\\cloyee\" && pnpm next build 2>&1 | tail -30)",
+      "Bash(cd \"C:\\\\Private\\\\2026\\\\withCloyee\\\\01 grabWithCloyee\\\\cloyee\" && pnpm dlx shadcn@latest add progress --yes 2>&1)",
+      "Bash(cd '/c/Private/2026/withCloyee/01 grabWithCloyee/cloyee' && pnpm next build 2>&1 | tail -25)"
     ]
   }
 }

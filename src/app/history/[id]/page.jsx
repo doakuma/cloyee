@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, MessageSquare, Code2, CalendarDays, Trophy } from "lucide-react";
 import MarkdownMessage from "@/components/common/MarkdownMessage";
+import DownloadButton from "./DownloadButton";
 
 // ─── 데이터 fetching ──────────────────────────────────────────────────────────
 
@@ -33,6 +35,44 @@ function scoreBadgeClass(score) {
   if (score >= 80) return "bg-green-50 text-green-700 border-green-200";
   if (score >= 60) return "bg-yellow-50 text-yellow-700 border-yellow-200";
   return "bg-red-50 text-red-700 border-red-200";
+}
+
+function scoreTextColor(score) {
+  if (score == null) return "text-muted-foreground";
+  if (score >= 80) return "text-green-600";
+  if (score >= 60) return "text-yellow-600";
+  return "text-red-500";
+}
+
+function progressBarColor(score) {
+  if (score == null) return "";
+  if (score >= 80) return "[&>div]:bg-green-500";
+  if (score >= 60) return "[&>div]:bg-yellow-500";
+  return "[&>div]:bg-red-500";
+}
+
+// ─── 요약 파싱 ────────────────────────────────────────────────────────────────
+
+function parseSummary(summary) {
+  if (!summary) return { main: "", goodPoints: "", improvePoints: "" };
+
+  const goodMatch = summary.match(/##\s*(잘\s*된\s*점|Good)[^\n]*\n([\s\S]*?)(?=##|$)/i);
+  const improveMatch = summary.match(/##\s*(개선|Improve)[^\n]*\n([\s\S]*?)(?=##|$)/i);
+
+  if (!goodMatch && !improveMatch) {
+    return { main: summary.trim(), goodPoints: "", improvePoints: "" };
+  }
+
+  const main = summary
+    .replace(/##\s*(잘\s*된\s*점|Good)[^\n]*\n[\s\S]*?(?=##|$)/i, "")
+    .replace(/##\s*(개선|Improve)[^\n]*\n[\s\S]*?(?=##|$)/i, "")
+    .trim();
+
+  return {
+    main,
+    goodPoints: goodMatch?.[2]?.trim() ?? "",
+    improvePoints: improveMatch?.[2]?.trim() ?? "",
+  };
 }
 
 // ─── 메시지 버블 ───────────────────────────────────────────────────────────────
@@ -111,9 +151,10 @@ export default async function HistoryDetailPage({ params }) {
   const isReview = session.mode === "review";
   const categoryName = session.categories?.name ?? session.category_id ?? "—";
   const messages = review?.messages ?? [];
+  const { main: summaryMain, goodPoints, improvePoints } = parseSummary(session.summary);
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="p-6 md:p-8 max-w-5xl mx-auto pb-20">
 
       {/* 뒤로가기 */}
       <Link
@@ -125,7 +166,7 @@ export default async function HistoryDetailPage({ params }) {
       </Link>
 
       {/* 헤더 */}
-      <div className="flex items-start justify-between gap-4 mb-8">
+      <div className="flex items-start justify-between gap-4 mb-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-2">
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isReview ? "bg-violet-100" : "bg-sky-100"}`}>
@@ -139,19 +180,11 @@ export default async function HistoryDetailPage({ params }) {
           </div>
           <h1 className="text-xl font-bold leading-snug">{session.title ?? "학습 세션"}</h1>
         </div>
-
-        {/* 점수 */}
-        {session.score != null && (
-          <div className={`shrink-0 flex items-center gap-1.5 border rounded-xl px-3 py-2 ${scoreBadgeClass(session.score)}`}>
-            <Trophy size={14} />
-            <span className="text-lg font-bold">{session.score}</span>
-            <span className="text-xs">점</span>
-          </div>
-        )}
+        <DownloadButton session={session} review={review} />
       </div>
 
       {/* 메타 정보 */}
-      <div className="flex items-center gap-4 text-xs text-muted-foreground mb-8">
+      <div className="flex items-center gap-4 text-xs text-muted-foreground mb-6">
         <span className="flex items-center gap-1">
           <CalendarDays size={13} />
           {new Date(session.created_at).toLocaleDateString("ko-KR", {
@@ -160,14 +193,71 @@ export default async function HistoryDetailPage({ params }) {
         </span>
       </div>
 
-      {/* 요약 */}
-      {session.summary && (
-        <Card className="mb-8">
-          <CardContent className="py-4">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">학습 요약</p>
-            <p className="text-sm leading-relaxed whitespace-pre-wrap">{session.summary}</p>
+      {/* 이해도 점수 — Progress 바 */}
+      {session.score != null && (
+        <Card className="mb-6">
+          <CardContent className="pt-5 pb-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="flex items-center gap-1.5 text-sm font-medium">
+                <Trophy size={15} className="text-yellow-500" />
+                {isReview ? "코드 품질 점수" : "이해도 점수"}
+              </span>
+              <span className={`text-2xl font-bold ${scoreTextColor(session.score)}`}>
+                {session.score}점
+              </span>
+            </div>
+            <Progress value={session.score} className={`h-2.5 ${progressBarColor(session.score)}`} />
+            <p className="text-xs text-muted-foreground mt-2">
+              {session.score >= 80
+                ? "훌륭해요! 목표를 충분히 달성했습니다."
+                : session.score >= 60
+                ? "좋은 시작이에요. 조금 더 연습해보세요."
+                : "다시 도전해봐요. 꾸준히 하면 늘어납니다!"}
+            </p>
           </CardContent>
         </Card>
+      )}
+
+      {/* 요약 */}
+      {session.summary && (
+        <Card className="mb-6">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">
+              학습 요약
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm leading-relaxed whitespace-pre-wrap">
+              {summaryMain || session.summary}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 잘 된 점 / 개선할 점 (코드 리뷰이고 파싱된 경우) */}
+      {isReview && (goodPoints || improvePoints) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          {goodPoints && (
+            <Card className="border-green-200 bg-green-50/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-green-700">잘 된 점</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-green-800/80 whitespace-pre-wrap leading-relaxed">{goodPoints}</p>
+              </CardContent>
+            </Card>
+          )}
+          {improvePoints && (
+            <Card className="border-amber-200 bg-amber-50/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-amber-700">개선할 점</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-amber-800/80 whitespace-pre-wrap leading-relaxed">{improvePoints}</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
 
       {/* 대화 내역 */}

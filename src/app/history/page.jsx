@@ -1,11 +1,29 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Code2, CalendarDays, BookOpen } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { MessageSquare, Code2, CalendarDays, BookOpen, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 
 // ─── 유틸 ─────────────────────────────────────────────────────────────────────
 
@@ -56,51 +74,107 @@ function FilterButton({ active, onClick, children }) {
 
 // ─── 세션 카드 ────────────────────────────────────────────────────────────────
 
-function SessionCard({ session }) {
+function SessionCard({ session, onDelete, onRename }) {
   const isReview = session.mode === "review";
   const categoryName = session.categories?.name ?? session.category_id ?? "—";
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(session.title ?? "학습 세션");
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef(null);
+
+  async function handleRenameSubmit(e) {
+    e.preventDefault();
+    const trimmed = editTitle.trim();
+    if (!trimmed || trimmed === session.title) { setEditing(false); return; }
+    setSaving(true);
+    const { error } = await supabase
+      .from("sessions")
+      .update({ title: trimmed })
+      .eq("id", session.id);
+    setSaving(false);
+    if (!error) {
+      onRename(session.id, trimmed);
+      setEditing(false);
+    }
+  }
+
+  // 편집 모드 진입 시 input 포커스
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
 
   return (
-    <Link href={`/history/${session.id}`}>
-      <Card
-        size="sm"
-        className="cursor-pointer hover:ring-primary/30 hover:ring-2 transition-all"
-      >
-        <CardContent className="flex items-center gap-4">
-          {/* 모드 아이콘 */}
-          <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${isReview ? "bg-violet-100" : "bg-sky-100"}`}>
-            {isReview
-              ? <Code2 size={16} className="text-violet-600" />
-              : <MessageSquare size={16} className="text-sky-600" />
-            }
-          </div>
+    <Card size="sm" className="hover:ring-primary/30 hover:ring-2 transition-all">
+      <CardContent className="flex items-center gap-4">
+        {/* 모드 아이콘 */}
+        <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${isReview ? "bg-violet-100" : "bg-sky-100"}`}>
+          {isReview
+            ? <Code2 size={16} className="text-violet-600" />
+            : <MessageSquare size={16} className="text-sky-600" />
+          }
+        </div>
 
-          {/* 내용 */}
-          <div className="flex-1 min-w-0">
-            <p className="font-medium text-sm truncate">{session.title ?? "학습 세션"}</p>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-xs text-muted-foreground">{categoryName}</span>
-              <span className="text-xs text-muted-foreground">·</span>
-              <span className="text-xs text-muted-foreground">
-                {new Date(session.created_at).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}
-              </span>
-            </div>
-          </div>
+        {/* 내용 */}
+        <Link href={`/history/${session.id}`} className="flex-1 min-w-0" onClick={(e) => editing && e.preventDefault()}>
+          {editing ? (
+            <form onSubmit={handleRenameSubmit} onClick={(e) => e.stopPropagation()}>
+              <Input
+                ref={inputRef}
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                onBlur={handleRenameSubmit}
+                onKeyDown={(e) => e.key === "Escape" && setEditing(false)}
+                disabled={saving}
+                className="h-7 text-sm py-0"
+              />
+            </form>
+          ) : (
+            <>
+              <p className="font-medium text-sm truncate">{session.title ?? "학습 세션"}</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-xs text-muted-foreground">{categoryName}</span>
+                <span className="text-xs text-muted-foreground">·</span>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(session.created_at).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}
+                </span>
+              </div>
+            </>
+          )}
+        </Link>
 
-          {/* 오른쪽: 모드 배지 + 점수 */}
-          <div className="shrink-0 flex flex-col items-end gap-1.5">
+        {/* 오른쪽: 모드 배지 + 점수 + 메뉴 */}
+        <div className="shrink-0 flex flex-col items-end gap-1.5">
+          <div className="flex items-center gap-1">
             <Badge variant="outline" className="text-xs">
               {isReview ? "리뷰" : "대화"}
             </Badge>
-            {session.score != null && (
-              <span className={`text-xs font-semibold border rounded-md px-1.5 py-0.5 ${scoreBg(session.score)}`}>
-                {session.score}점
-              </span>
-            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.preventDefault()}>
+                  <MoreHorizontal size={14} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setEditing(true)}>
+                  <Pencil size={13} className="mr-2" /> 제목 편집
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => onDelete(session.id)}
+                >
+                  <Trash2 size={13} className="mr-2" /> 삭제
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-        </CardContent>
-      </Card>
-    </Link>
+          {session.score != null && (
+            <span className={`text-xs font-semibold border rounded-md px-1.5 py-0.5 ${scoreBg(session.score)}`}>
+              {session.score}점
+            </span>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -132,6 +206,22 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [dateFilter, setDateFilter] = useState("all");      // "week" | "month" | "all"
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (!deleteTargetId) return;
+    setDeleting(true);
+    await supabase.from("reviews").delete().eq("session_id", deleteTargetId);
+    await supabase.from("sessions").delete().eq("id", deleteTargetId);
+    setSessions((prev) => prev.filter((s) => s.id !== deleteTargetId));
+    setDeleting(false);
+    setDeleteTargetId(null);
+  }
+
+  function handleRename(id, newTitle) {
+    setSessions((prev) => prev.map((s) => s.id === id ? { ...s, title: newTitle } : s));
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -249,10 +339,37 @@ export default function HistoryPage() {
       ) : (
         <div className="space-y-3">
           {filtered.map((session) => (
-            <SessionCard key={session.id} session={session} />
+            <SessionCard
+              key={session.id}
+              session={session}
+              onDelete={setDeleteTargetId}
+              onRename={handleRename}
+            />
           ))}
         </div>
       )}
+
+      {/* 삭제 확인 AlertDialog */}
+      <AlertDialog open={!!deleteTargetId} onOpenChange={(open) => !open && setDeleteTargetId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>세션을 삭제할까요?</AlertDialogTitle>
+            <AlertDialogDescription>
+              삭제된 학습 기록은 복구할 수 없습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>취소</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "삭제 중..." : "삭제"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
