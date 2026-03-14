@@ -99,6 +99,7 @@ async function getIncompleteSessions() {
     .select("id, title, category_id, score, created_at, categories(name)")
     .eq("is_complete", false)
     .eq("mode", "chat")
+    .or("summary.is.null,summary.eq.")
     .order("created_at", { ascending: false })
     .limit(3);
 

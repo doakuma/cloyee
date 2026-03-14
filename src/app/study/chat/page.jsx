@@ -335,7 +335,7 @@ function ChatView() {
         // 신규 세션 중간 저장
         const { data, error: sessErr } = await supabase
           .from("sessions")
-          .insert({ category_id: category, title, summary: "", score: currentScore, mode: "chat", is_complete: false })
+          .insert({ category_id: category, title, summary: null, score: currentScore, mode: "chat", is_complete: false })
           .select("id")
           .single();
         if (sessErr) { console.error("[pause] sessions insert 실패:", sessErr.message); }
