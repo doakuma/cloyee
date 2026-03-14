@@ -1,9 +1,11 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, BookOpen, ClipboardList, TrendingUp } from "lucide-react";
+import { LayoutDashboard, BookOpen, ClipboardList, TrendingUp, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 
 const navItems = [
   { href: "/", label: "홈", icon: LayoutDashboard },
@@ -14,6 +16,15 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   return (
     <>
@@ -46,9 +57,27 @@ export default function Sidebar() {
           })}
         </nav>
 
-        {/* 하단 */}
-        <div className="p-4 border-t border-border">
-          <p className="text-xs text-muted-foreground text-center">Cloyee v0.1</p>
+        {/* 하단 프로필 */}
+        <div className="p-3 border-t border-border">
+          <Link
+            href="/my"
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-accent transition-colors"
+          >
+            {user?.user_metadata?.avatar_url ? (
+              <img
+                src={user.user_metadata.avatar_url}
+                alt=""
+                className="w-7 h-7 rounded-full object-cover shrink-0"
+              />
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center shrink-0">
+                <User size={14} className="text-muted-foreground" />
+              </div>
+            )}
+            <span className="text-sm font-medium truncate">
+              {user?.user_metadata?.full_name ?? user?.email ?? "내 프로필"}
+            </span>
+          </Link>
         </div>
       </aside>
 

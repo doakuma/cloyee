@@ -254,7 +254,7 @@ function ReviewView() {
           { role: "assistant", content: data.message },
         ];
         // data.score를 직접 전달해 finalScore 클로저 문제 방지
-        const saved = await saveSession(data.summary, data.score, allMessages);
+        const saved = await saveSession(data.summary, data.score, allMessages, data.user_id);
         if (saved) {
           setTimeout(() => router.push("/history"), 2000);
         } else {
@@ -294,7 +294,7 @@ function ReviewView() {
   }
 
   // 성공 시 true, 실패 시 false 반환 — score를 명시적 파라미터로 받아 클로저 문제 방지
-  async function saveSession(summary, score, allMessages) {
+  async function saveSession(summary, score, allMessages, userId) {
     try {
       const { data, error } = await supabase
         .from("sessions")
@@ -304,6 +304,7 @@ function ReviewView() {
           summary,
           score,
           mode: "review",
+          user_id: userId ?? null,
         })
         .select("id")
         .single();

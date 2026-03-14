@@ -6,7 +6,10 @@
       "Bash(cd \"C:\\\\Private\\\\2026\\\\withCloyee\\\\01 grabWithCloyee\\\\cloyee\" && pnpm dlx shadcn@latest add alert-dialog dropdown-menu --yes 2>&1)",
       "Bash(cd \"C:\\\\Private\\\\2026\\\\withCloyee\\\\01 grabWithCloyee\\\\cloyee\" && pnpm next build 2>&1 | tail -30)",
       "Bash(cd \"C:\\\\Private\\\\2026\\\\withCloyee\\\\01 grabWithCloyee\\\\cloyee\" && pnpm dlx shadcn@latest add progress --yes 2>&1)",
-      "Bash(cd '/c/Private/2026/withCloyee/01 grabWithCloyee/cloyee' && pnpm next build 2>&1 | tail -25)"
+      "Bash(cd '/c/Private/2026/withCloyee/01 grabWithCloyee/cloyee' && pnpm next build 2>&1 | tail -25)",
+      "Bash(cd '/c/Private/2026/withCloyee/01 grabWithCloyee/cloyee' && pnpm add @monaco-editor/react 2>&1 | tail -5)",
+      "Bash(cd '/c/Private/2026/withCloyee/01 grabWithCloyee/cloyee' && pnpm next build 2>&1 | tail -20)",
+      "Bash(cd '/c/Private/2026/withCloyee/01 grabWithCloyee/cloyee' && pnpm add @supabase/ssr 2>&1 | tail -5)"
     ]
   }
 }

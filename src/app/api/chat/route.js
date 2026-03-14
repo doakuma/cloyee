@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { parseClaudeJson, DEFAULT_MODEL } from "@/lib/claude";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const isDev = process.env.NODE_ENV !== "production";
@@ -43,6 +44,10 @@ export async function POST(request) {
   // API 키 로드 확인
   const apiKey = process.env.ANTHROPIC_API_KEY;
   isDev && console.log("[chat] ANTHROPIC_API_KEY 로드 여부:", apiKey ? `설정됨 (sk-...${apiKey.slice(-4)})` : "❌ 없음");
+
+  const supabaseServer = await createSupabaseServerClient();
+  const { data: { user } } = await supabaseServer.auth.getUser();
+  const userId = user?.id ?? null;
 
   const { category, title, messages, message } = await request.json();
   isDev && console.log("[chat] 요청 수신 — category:", category, "| title:", title, "| message:", message?.slice(0, 50));
@@ -98,5 +103,6 @@ export async function POST(request) {
     feedback: parsed.feedback ?? "",
     is_complete: parsed.is_complete ?? false,
     summary: parsed.summary ?? "",
+    user_id: userId,
   });
 }

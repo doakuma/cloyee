@@ -219,7 +219,7 @@ function ChatView() {
           { role: "user", content: userMessage },
           { role: "assistant", content: data.message },
         ];
-        const saved = await saveSession(data.summary, data.score, allMessages);
+        const saved = await saveSession(data.summary, data.score, allMessages, data.user_id);
         if (saved) {
           sessionStorage.removeItem(SESSION_KEY);
           setTimeout(() => router.push("/history"), 2000);
@@ -252,7 +252,7 @@ function ChatView() {
 
 
   // 완료 시 세션 저장 (신규 생성 or 기존 세션 업데이트) — 성공 시 true, 실패 시 false 반환
-  async function saveSession(summary, score, allMessages) {
+  async function saveSession(summary, score, allMessages, userId) {
     try {
       if (sessionId) {
         // 이어하기 → 기존 세션 업데이트
@@ -271,7 +271,7 @@ function ChatView() {
         // 일반 완료 → 신규 세션 생성
         const { data, error } = await supabase
           .from("sessions")
-          .insert({ category_id: category, title, summary, score, mode: "chat", is_complete: true })
+          .insert({ category_id: category, title, summary, score, mode: "chat", is_complete: true, user_id: userId ?? null })
           .select("id")
           .single();
         if (error) { console.error("[chat] 세션 저장 실패:", error.message); return false; }

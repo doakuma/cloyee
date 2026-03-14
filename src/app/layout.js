@@ -1,4 +1,5 @@
 import { Geist, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
 import Sidebar from "@/components/common/Sidebar";
 
@@ -17,13 +18,17 @@ export const metadata = {
   description: "AI 기반 코딩 학습 도우미",
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  const headersList = await headers();
+  const pathname = headersList.get("x-pathname") ?? "";
+  const hideSidebar = pathname.startsWith("/login") || pathname.startsWith("/auth");
+
   return (
     <html lang="ko">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <div className="flex min-h-screen bg-background">
-          <Sidebar />
-          <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
+          {!hideSidebar && <Sidebar />}
+          <main className={`flex-1 overflow-y-auto ${hideSidebar ? "" : "pb-16 md:pb-0"}`}>
             {children}
           </main>
         </div>
