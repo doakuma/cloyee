@@ -57,6 +57,17 @@ export default function Sidebar() {
           })}
         </nav>
 
+        {/* 하단 링크 */}
+        <div className="px-4 pb-2 flex items-center gap-3">
+          <Link href="/privacy" className="text-[11px] text-muted-foreground hover:text-foreground transition-colors">
+            개인정보처리방침
+          </Link>
+          <span className="text-muted-foreground/40 text-[11px]">·</span>
+          <Link href="/terms" className="text-[11px] text-muted-foreground hover:text-foreground transition-colors">
+            이용약관
+          </Link>
+        </div>
+
         {/* 하단 프로필 */}
         <div className="p-3 border-t border-border">
           <Link

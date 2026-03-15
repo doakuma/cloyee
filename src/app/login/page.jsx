@@ -69,7 +69,11 @@ function LoginContent() {
         </button>
 
         <p className="text-xs text-muted-foreground text-center">
-          로그인 시 서비스 이용약관 및 개인정보처리방침에 동의합니다
+          로그인 시{" "}
+          <a href="/terms" className="underline underline-offset-2 hover:text-foreground">이용약관</a>
+          {" "}및{" "}
+          <a href="/privacy" className="underline underline-offset-2 hover:text-foreground">개인정보처리방침</a>
+          에 동의합니다
         </p>
       </div>
     </div>
