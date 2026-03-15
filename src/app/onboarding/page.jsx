@@ -85,16 +85,17 @@ export default function OnboardingPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/login"); return; }
 
+    // update 대신 upsert: profiles 행이 없을 때도 생성 보장
     const { error } = await supabase
       .from("profiles")
-      .update({
+      .upsert({
+        id: user.id,
         job_role: jobRole,
         experience,
         level,
         onboarding_done: true,
         category_order: selectedCategories,
-      })
-      .eq("id", user.id);
+      });
 
     if (error) {
       console.error("[onboarding] 저장 실패:", error.message);

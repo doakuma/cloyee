@@ -35,7 +35,10 @@ export default function Sidebar() {
     return () => subscription.unsubscribe();
   }, [router]);
 
-  if (!visible) return null;
+  const isHiddenPath = ["/login", "/auth", "/onboarding"].some((p) =>
+    pathname.startsWith(p)
+  );
+  if (!visible || isHiddenPath) return null;
 
   return (
     <>
