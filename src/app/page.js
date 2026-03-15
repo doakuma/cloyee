@@ -86,14 +86,32 @@ async function getDashboardData(supabase, userId) {
   };
 }
 
-// ─── 카테고리 fetching ────────────────────────────────────────────────────────
+// ─── 카테고리 fetching (category_order 기반 정렬) ────────────────────────────
 
-async function getCategories(supabase) {
-  const { data } = await supabase
+async function getCategories(supabase, userId) {
+  const { data: categories } = await supabase
     .from("categories")
-    .select("id, name, icon, is_default");
+    .select("id, name, icon, is_default")
+    .order("is_default", { ascending: false });
 
-  return data ?? [];
+  const all = categories ?? [];
+
+  if (!userId) return all;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("category_order")
+    .eq("id", userId)
+    .maybeSingle();
+
+  const order = profile?.category_order;
+  if (!Array.isArray(order) || order.length === 0) return all;
+
+  const orderMap = new Map(order.map((id, i) => [id, i]));
+  const selected = order.map((id) => all.find((c) => c.id === id)).filter(Boolean);
+  const others = all.filter((c) => !orderMap.has(c.id));
+
+  return [...selected, ...others];
 }
 
 // ─── 미완료 세션 fetching (이어하기) ──────────────────────────────────────────
@@ -150,7 +168,7 @@ export default async function HomePage() {
     incompleteSessions,
   ] = await Promise.all([
     getDashboardData(supabase, userId),
-    getCategories(supabase),
+    getCategories(supabase, userId),
     getIncompleteSessions(supabase, userId),
   ]);
 
