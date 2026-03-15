@@ -58,7 +58,10 @@ function LoginContent() {
     setMessage(null);
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        shouldCreateUser: true,
+      },
     });
     if (error) {
       setMessage({ type: "error", text: error.message });
