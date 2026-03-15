@@ -5,14 +5,18 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const isDev = process.env.NODE_ENV !== "production";
 
-function buildSystemPrompt(category, title) {
+function buildSystemPrompt(category, title, userProfile) {
+  const profileSection = userProfile
+    ? `\n## 학습자 정보\n- 직군: ${userProfile.job_role ?? "미설정"}\n- 경력: ${userProfile.experience ?? "미설정"}\n- 레벨: ${userProfile.level ?? "미설정"}\n이에 맞는 난이도와 톤으로 대화해주세요.\n`
+    : "";
+
   return `당신은 소크라테스식 문답법으로 학습을 도와주는 AI 스터디메이트 Cloyee입니다.
 
 ## 역할
 - 학습자 스스로 답을 찾도록 질문을 통해 이끌어줍니다
 - 정답을 직접 알려주기보다 힌트와 반문으로 사고를 자극합니다
 - 학습자의 이해도를 지속적으로 평가하고 격려합니다
-
+${profileSection}
 ## 현재 학습 세션
 - 카테고리: ${category}
 - 주제: ${title}
@@ -49,7 +53,7 @@ export async function POST(request) {
   const { data: { user } } = await supabaseServer.auth.getUser();
   const userId = user?.id ?? null;
 
-  const { category, title, messages, message } = await request.json();
+  const { category, title, messages, message, userProfile } = await request.json();
   isDev && console.log("[chat] 요청 수신 — category:", category, "| title:", title, "| message:", message?.slice(0, 50));
 
   if (!message?.trim()) {
@@ -67,7 +71,7 @@ export async function POST(request) {
     const response = await client.messages.create({
       model: DEFAULT_MODEL,
       max_tokens: 1024,
-      system: buildSystemPrompt(category ?? "일반", title ?? "자유 학습"),
+      system: buildSystemPrompt(category ?? "일반", title ?? "자유 학습", userProfile ?? null),
       messages: conversationMessages,
     });
     raw = response.content[0].text;

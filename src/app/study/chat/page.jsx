@@ -93,11 +93,25 @@ function ChatView() {
   const [finalScore, setFinalScore] = useState(0);
   const [saveError, setSaveError] = useState("");
   const [categoryName, setCategoryName] = useState(category); // UUID 대신 표시할 이름
+  const [userProfile, setUserProfile] = useState(null);
 
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
   const SESSION_KEY = "cloyee_chat_session";
+
+  // 사용자 프로필 조회
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase
+        .from("profiles")
+        .select("job_role, experience, level")
+        .eq("id", user.id)
+        .maybeSingle()
+        .then(({ data }) => { if (data) setUserProfile(data); });
+    });
+  }, []);
 
   // categories 테이블에서 카테고리 이름 조회
   useEffect(() => {
@@ -191,7 +205,7 @@ function ChatView() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ category, title, messages: history, message: userMessage }),
+        body: JSON.stringify({ category, title, messages: history, message: userMessage, userProfile }),
       });
 
       if (!res.ok) {

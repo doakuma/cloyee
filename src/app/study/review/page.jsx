@@ -193,9 +193,23 @@ function ReviewView() {
   const [finalScore, setFinalScore] = useState(0);
   const [saveError, setSaveError] = useState("");
   const [categoryName, setCategoryName] = useState(category);
+  const [userProfile, setUserProfile] = useState(null);
 
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
+
+  // 사용자 프로필 조회
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase
+        .from("profiles")
+        .select("job_role, experience, level")
+        .eq("id", user.id)
+        .maybeSingle()
+        .then(({ data }) => { if (data) setUserProfile(data); });
+    });
+  }, []);
 
   useEffect(() => {
     if (!category || category === "일반") return;
@@ -225,6 +239,7 @@ function ReviewView() {
           language,
           messages: history,
           message: userMessage,
+          userProfile,
         }),
       });
 

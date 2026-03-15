@@ -5,10 +5,14 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const isDev = process.env.NODE_ENV !== "production";
 
-function buildSystemPrompt(category, title, code, language) {
+function buildSystemPrompt(category, title, code, language, userProfile) {
+  const profileSection = userProfile
+    ? `\n## 개발자 정보\n- 직군: ${userProfile.job_role ?? "미설정"}\n- 경력: ${userProfile.experience ?? "미설정"}\n- 레벨: ${userProfile.level ?? "미설정"}\n이에 맞는 수준으로 리뷰를 진행해주세요.\n`
+    : "";
+
   return `당신은 시니어 개발자이자 코드 리뷰 전문가 Cloyee입니다.
 대화형으로 코드 리뷰를 진행하며, 개발자가 스스로 코드를 개선할 수 있도록 이끌어줍니다.
-
+${profileSection}
 ## 리뷰 대상
 - 카테고리: ${category}
 - 주제: ${title}
@@ -55,7 +59,7 @@ export async function POST(request) {
   const { data: { user } } = await supabaseServer.auth.getUser();
   const userId = user?.id ?? null;
 
-  const { category, title, code, language, messages, message } = await request.json();
+  const { category, title, code, language, messages, message, userProfile } = await request.json();
 
   if (!message?.trim()) {
     return Response.json({ error: "message가 필요합니다." }, { status: 400 });
@@ -74,7 +78,7 @@ export async function POST(request) {
     const response = await client.messages.create({
       model: DEFAULT_MODEL,
       max_tokens: 2048,
-      system: buildSystemPrompt(category ?? "일반", title ?? "코드 리뷰", code, language ?? "plaintext"),
+      system: buildSystemPrompt(category ?? "일반", title ?? "코드 리뷰", code, language ?? "plaintext", userProfile ?? null),
       messages: conversationMessages,
     });
     raw = response.content[0].text;

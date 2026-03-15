@@ -26,6 +26,18 @@ export async function GET(request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     console.log("[auth/callback] exchangeCodeForSession:", error ? `❌ ${error.message}` : "✅ 성공");
     if (!error) {
+      // 온보딩 완료 여부 확인
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("onboarding_done")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (!profile?.onboarding_done) {
+          return NextResponse.redirect(`${origin}/onboarding`);
+        }
+      }
       return NextResponse.redirect(`${origin}${next}`);
     }
     return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(error.message)}`);
