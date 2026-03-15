@@ -46,7 +46,7 @@ export default function IncompleteSessions({ initialSessions }) {
         {sessions.map((session) => (
           <div key={session.id} className="relative group">
             <Link
-              href={`/study/chat?session_id=${session.id}&category=${encodeURIComponent(session.category_id ?? "")}&title=${encodeURIComponent(session.title ?? "")}`}
+              href={`/study/chat?roadmap_id=${session.roadmap_id}&session_id=${session.id}`}
             >
               <Card className="cursor-pointer hover:ring-primary/40 hover:ring-2 transition-all border-primary/20 bg-primary/5">
                 <CardContent className="flex items-center gap-4">

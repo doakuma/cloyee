@@ -311,7 +311,7 @@ function ChatView() {
         // 일반 완료 → 신규 세션 생성
         const { data, error } = await supabase
           .from("sessions")
-          .insert({ category_id: category, title, summary, score, mode: "chat", is_complete: true, user_id: userId ?? null })
+          .insert({ category_id: category, title, summary, score, mode: "chat", is_complete: true, user_id: userId ?? null, roadmap_id: roadmapId ?? null })
           .select("id")
           .single();
         if (error) { console.error("[chat] 세션 저장 실패:", error.message); return false; }
@@ -374,7 +374,7 @@ function ChatView() {
         // 신규 세션 중간 저장
         const { data, error: sessErr } = await supabase
           .from("sessions")
-          .insert({ category_id: category, title, summary: null, score: currentScore, mode: "chat", is_complete: false, user_id: userId })
+          .insert({ category_id: category, title, summary: null, score: currentScore, mode: "chat", is_complete: false, user_id: userId, roadmap_id: roadmapId ?? null })
           .select("id")
           .single();
         if (sessErr) { console.error("[pause] sessions insert 실패:", sessErr.message); }

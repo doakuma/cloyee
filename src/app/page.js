@@ -105,10 +105,11 @@ async function getRoadmaps(supabase, userId) {
 async function getIncompleteSessions(supabase, userId) {
   let query = supabase
     .from("sessions")
-    .select("id, title, category_id, score, created_at, categories(name)")
+    .select("id, title, category_id, score, created_at, roadmap_id, categories(name)")
     .eq("is_complete", false)
     .eq("mode", "chat")
     .or("summary.is.null,summary.eq.")
+    .not("roadmap_id", "is", null)  // roadmap_id 없는 구 세션 제외
     .order("created_at", { ascending: false })
     .limit(3);
 

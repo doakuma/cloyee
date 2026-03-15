@@ -15,23 +15,27 @@ const DIFFICULTY_STYLE = {
 // ─── 데이터 fetching ──────────────────────────────────────────────────────────
 
 async function getRoadmaps() {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  let roadmaps = [];
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) return [];
+    if (!user) return [];
 
-  const { data, error } = await supabase
-    .from("roadmaps")
-    .select("id, topic, difficulty, duration, category_id, categories(name, icon)")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .order("created_at", { ascending: false });
+    const { data, error } = await supabase
+      .from("roadmaps")
+      .select("id, topic, difficulty, duration, category_id, categories(name, icon)")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .order("created_at", { ascending: false });
 
-  if (error) {
-    console.error("[study] roadmaps 조회 실패:", error.message);
+    if (error) throw error;
+    roadmaps = data ?? [];
+  } catch (e) {
+    console.error("[study] roadmaps 조회 실패:", e.message);
+    // 빈 배열로 fallback — 페이지는 정상 렌더링
   }
-
-  return data ?? [];
+  return roadmaps;
 }
 
 // ─── 페이지 ───────────────────────────────────────────────────────────────────
