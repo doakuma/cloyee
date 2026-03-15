@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, BookOpen, ClipboardList, TrendingUp, User } from "lucide-react";
+import { LayoutDashboard, BookOpen, ClipboardList, TrendingUp, User, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 
@@ -19,14 +19,13 @@ export default function Sidebar() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [visible, setVisible] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
-      if (event === "SIGNED_IN") {
-        setVisible(true);
-      }
+      if (event === "SIGNED_IN") setVisible(true);
       if (event === "SIGNED_OUT") {
         setVisible(false);
         router.push("/login");
@@ -35,10 +34,18 @@ export default function Sidebar() {
     return () => subscription.unsubscribe();
   }, [router]);
 
+  async function handleLogout() {
+    setLoggingOut(true);
+    await supabase.auth.signOut();
+    setLoggingOut(false);
+  }
+
   const isHiddenPath = ["/login", "/auth", "/onboarding"].some((p) =>
     pathname.startsWith(p)
   );
   if (!visible || isHiddenPath) return null;
+
+  const isGuest = !user;
 
   return (
     <>
@@ -83,26 +90,55 @@ export default function Sidebar() {
         </div>
 
         {/* 하단 프로필 */}
-        <div className="p-3 border-t border-border">
-          <Link
-            href="/my"
-            className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-accent transition-colors"
-          >
-            {user?.user_metadata?.avatar_url ? (
-              <img
-                src={user.user_metadata.avatar_url}
-                alt=""
-                className="w-7 h-7 rounded-full object-cover shrink-0"
-              />
-            ) : (
-              <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center shrink-0">
-                <User size={14} className="text-muted-foreground" />
+        <div className="p-3 border-t border-border space-y-1">
+          {isGuest ? (
+            /* 게스트 상태 */
+            <div className="flex flex-col gap-2 px-3 py-2.5">
+              <div className="flex items-center gap-3">
+                <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center shrink-0">
+                  <User size={14} className="text-muted-foreground" />
+                </div>
+                <span className="text-sm text-muted-foreground">게스트 모드</span>
               </div>
-            )}
-            <span className="text-sm font-medium truncate">
-              {user?.user_metadata?.full_name ?? user?.email ?? "내 프로필"}
-            </span>
-          </Link>
+              <Link
+                href="/login"
+                className="w-full text-center rounded-lg bg-primary text-primary-foreground px-3 py-1.5 text-xs font-medium hover:opacity-90 transition-colors"
+              >
+                로그인하고 저장하기
+              </Link>
+            </div>
+          ) : (
+            /* 로그인 상태 */
+            <>
+              <Link
+                href="/my"
+                className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-accent transition-colors"
+              >
+                {user?.user_metadata?.avatar_url ? (
+                  <img
+                    src={user.user_metadata.avatar_url}
+                    alt=""
+                    className="w-7 h-7 rounded-full object-cover shrink-0"
+                  />
+                ) : (
+                  <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center shrink-0">
+                    <User size={14} className="text-muted-foreground" />
+                  </div>
+                )}
+                <span className="text-sm font-medium truncate">
+                  {user?.user_metadata?.full_name ?? user?.email ?? "내 프로필"}
+                </span>
+              </Link>
+              <button
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
+              >
+                <LogOut size={16} />
+                {loggingOut ? "로그아웃 중..." : "로그아웃"}
+              </button>
+            </>
+          )}
         </div>
       </aside>
 
@@ -126,6 +162,25 @@ export default function Sidebar() {
             </Link>
           );
         })}
+        {/* 모바일 로그아웃/로그인 버튼 */}
+        {isGuest ? (
+          <Link
+            href="/login"
+            className="flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-medium text-primary"
+          >
+            <User size={20} />
+            로그인
+          </Link>
+        ) : (
+          <button
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+          >
+            <LogOut size={20} />
+            로그아웃
+          </button>
+        )}
       </nav>
     </>
   );
