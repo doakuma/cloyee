@@ -508,7 +508,7 @@ function ChatView() {
           disabled={loading || isComplete || !input.trim()}
           className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-primary text-primary-foreground disabled:opacity-40 transition-opacity"
         >
-          <Send size={16} />
+          {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
         </button>
       </form>
     </div>

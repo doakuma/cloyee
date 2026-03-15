@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
 import Sidebar from "@/components/common/Sidebar";
+import ProgressBar from "@/components/common/ProgressBar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,6 +30,7 @@ export default async function RootLayout({ children }) {
   return (
     <html lang="ko">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <ProgressBar />
         <div className="flex min-h-screen bg-background">
           {!hideSidebar && <Sidebar />}
           <main className={`flex-1 overflow-y-auto ${hideSidebar ? "" : "pb-16 md:pb-0"}`}>

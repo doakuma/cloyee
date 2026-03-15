@@ -21,7 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreVertical } from "lucide-react";
+import { MoreVertical, Loader2 } from "lucide-react";
 
 const DIFFICULTY_STYLE = {
   입문: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
@@ -56,6 +56,11 @@ export default function RoadmapCard({ roadmap, variant = "active" }) {
   return (
     <>
       <div className="relative group">
+        {updating && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-background/60 backdrop-blur-sm">
+            <Loader2 size={20} className="animate-spin text-muted-foreground" />
+          </div>
+        )}
         <Link href={`/study/chat?roadmap_id=${roadmap.id}`}>
           <Card className="h-full cursor-pointer hover:ring-primary/40 hover:ring-2 transition-all">
             <CardHeader className="pb-3 pr-10">

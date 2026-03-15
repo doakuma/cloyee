@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
-import { Plus, X, Star } from "lucide-react";
+import { Plus, X, Star, Loader2 } from "lucide-react";
 
 const DURATIONS = ["1주", "2주", "1개월", "3개월", "직접입력"];
 const DIFFICULTIES = ["입문", "초급", "중급", "고급"];
@@ -303,6 +303,7 @@ export default function NewRoadmapPage() {
             취소
           </button>
           <Button type="submit" disabled={!canSubmit}>
+            {saving && <Loader2 size={15} className="animate-spin mr-1.5" />}
             {saving ? "저장 중…" : "저장하기"}
           </Button>
         </div>

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, ChevronLeft, Check, Plus, X, Star } from "lucide-react";
+import { ChevronRight, ChevronLeft, Check, Plus, X, Star, Loader2 } from "lucide-react";
 
 // ─── 상수 ─────────────────────────────────────────────────────────────────────
 
@@ -500,8 +500,9 @@ export default function OnboardingPage() {
               <button
                 onClick={handleSkip}
                 disabled={saving}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
+                {saving && <Loader2 size={13} className="animate-spin" />}
                 나중에 추가할게요
               </button>
             )}
@@ -512,6 +513,7 @@ export default function OnboardingPage() {
               </Button>
             ) : (
               <Button onClick={handleComplete} disabled={!canNext || saving}>
+                {saving ? <Loader2 size={15} className="animate-spin mr-1.5" /> : null}
                 {saving ? "저장 중…" : "시작하기"}
               </Button>
             )}
