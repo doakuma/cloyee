@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-export const DEFAULT_MODEL = process.env.CLAUDE_MODEL ?? "claude-sonnet-4-6";
+// 개발/테스트: claude-haiku-4-5-20251001 (저비용)
+// 프로덕션:    claude-sonnet-4-6 (고품질)
+export const DEFAULT_MODEL = process.env.CLAUDE_MODEL ?? "claude-haiku-4-5";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 

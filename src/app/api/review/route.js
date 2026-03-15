@@ -5,6 +5,8 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const isDev = process.env.NODE_ENV !== "production";
 
+// 개발/테스트: claude-haiku-4-5-20251001 (저비용)
+// 프로덕션:    claude-sonnet-4-6 (고품질)
 function buildSystemPrompt(category, title, code, language, userProfile) {
   const profileSection = userProfile
     ? `\n## 개발자 정보\n- 직군: ${userProfile.job_role ?? "미설정"}\n- 경력: ${userProfile.experience ?? "미설정"}\n- 레벨: ${userProfile.level ?? "미설정"}\n이에 맞는 수준으로 리뷰를 진행해주세요.\n`
