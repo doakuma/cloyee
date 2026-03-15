@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -11,6 +11,7 @@ import DownloadButton from "./DownloadButton";
 // ─── 데이터 fetching ──────────────────────────────────────────────────────────
 
 async function getSessionDetail(id) {
+  const supabase = await createSupabaseServerClient();
   const [{ data: session, error }, { data: review }] = await Promise.all([
     supabase
       .from("sessions")

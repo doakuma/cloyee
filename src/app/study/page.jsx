@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 
 async function getCategories() {
+  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("categories")
     .select("id, name, icon, is_default")
