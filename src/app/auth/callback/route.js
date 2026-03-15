@@ -23,20 +23,34 @@ export async function GET(request) {
         },
       }
     );
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data: exchangeData, error } = await supabase.auth.exchangeCodeForSession(code);
     console.log("[auth/callback] exchangeCodeForSession:", error ? `❌ ${error.message}` : "✅ 성공");
     if (!error) {
-      // 온보딩 완료 여부 확인
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = exchangeData.user;
       if (user) {
-        const { data: profile } = await supabase
+        // exchangeCodeForSession에서 받은 user를 직접 사용 (getUser() 재호출 불필요)
+        const { data: firstProfile } = await supabase
           .from("profiles")
           .select("onboarding_done")
           .eq("id", user.id)
           .maybeSingle();
-        if (!profile?.onboarding_done) {
-          return NextResponse.redirect(`${origin}/onboarding`);
+
+        // null이면 트리거가 아직 row 생성 중일 수 있음 — 한 번 재시도
+        let profile = firstProfile;
+        if (profile === null) {
+          await new Promise((r) => setTimeout(r, 600));
+          const { data: retryProfile } = await supabase
+            .from("profiles")
+            .select("onboarding_done")
+            .eq("id", user.id)
+            .maybeSingle();
+          profile = retryProfile;
         }
+
+        // onboarding_done이 명시적으로 true일 때만 홈으로 이동
+        return NextResponse.redirect(
+          profile?.onboarding_done === true ? `${origin}${next}` : `${origin}/onboarding`
+        );
       }
       return NextResponse.redirect(`${origin}${next}`);
     }
