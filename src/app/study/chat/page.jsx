@@ -583,7 +583,7 @@ function ChatView() {
           disabled={loading || streaming || isComplete || !input.trim()}
           className="shrink-0 flex items-center justify-center w-11 h-11 rounded-xl bg-primary text-primary-foreground disabled:opacity-40 transition-opacity"
         >
-          {(loading || streaming) ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+          {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
         </button>
       </form>
     </div>
