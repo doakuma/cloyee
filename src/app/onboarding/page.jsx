@@ -162,7 +162,7 @@ export default function OnboardingPage() {
       return;
     }
 
-    router.push("/");
+    router.push("/dashboard");
   }
 
   // ─── 건너뛰기 (profiles만 저장) ─────────────────────────────────────────────
@@ -182,7 +182,7 @@ export default function OnboardingPage() {
       return;
     }
 
-    router.push("/");
+    router.push("/dashboard");
   }
 
   // ─── 다음 버튼 활성화 조건 ───────────────────────────────────────────────────

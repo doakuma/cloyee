@@ -86,7 +86,7 @@ export default function NewRoadmapPage() {
       return;
     }
 
-    router.push("/");
+    router.push("/dashboard");
   }
 
   const canSubmit = topic.trim().length > 0 && !saving;

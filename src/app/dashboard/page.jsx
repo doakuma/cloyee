@@ -141,7 +141,7 @@ function statCards({ totalDays, streak, weekSessions, level }) {
 
 // ─── 컴포넌트 ──────────────────────────────────────────────────────────────────
 
-export default async function HomePage() {
+export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   const userId = user?.id ?? null;

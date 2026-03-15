@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 
 const navItems = [
-  { href: "/", label: "홈", icon: LayoutDashboard },
+  { href: "/dashboard", label: "홈", icon: LayoutDashboard },
   { href: "/study", label: "학습", icon: BookOpen },
   { href: "/history", label: "기록", icon: ClipboardList },
   { href: "/growth", label: "성장", icon: TrendingUp },
@@ -52,7 +52,7 @@ export default function Sidebar() {
         {/* 네비게이션 */}
         <nav className="flex flex-col gap-1 p-3 flex-1">
           {navItems.map(({ href, label, icon: Icon }) => {
-            const isActive = pathname === href || (href !== "/" && pathname.startsWith(href));
+            const isActive = pathname === href || pathname.startsWith(href + "/");
             return (
               <Link
                 key={href}
@@ -109,7 +109,7 @@ export default function Sidebar() {
       {/* 모바일 하단 탭바 */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-stretch border-t border-border bg-background">
         {navItems.map(({ href, label, icon: Icon }) => {
-          const isActive = pathname === href || (href !== "/" && pathname.startsWith(href));
+          const isActive = pathname === href || pathname.startsWith(href + "/");
           return (
             <Link
               key={href}

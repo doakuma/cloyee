@@ -394,7 +394,7 @@ function ChatView() {
 
       if (pauseSaved) {
         sessionStorage.removeItem(SESSION_KEY);
-        router.push("/");
+        router.push("/dashboard");
       } else {
         setSaveError("진행 상황 저장에 실패했습니다. 다시 시도해주세요.");
         setPausing(false);
