@@ -4,7 +4,9 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, ChevronLeft, Check } from "lucide-react";
+import { ChevronRight, ChevronLeft, Check, Plus, X, Star } from "lucide-react";
+
+// ─── 상수 ─────────────────────────────────────────────────────────────────────
 
 const JOB_ROLES = [
   { value: "developer", label: "개발자", emoji: "💻" },
@@ -26,6 +28,9 @@ const LEVELS = [
   { value: "intermediate", label: "중급", desc: "실무 경험이 있음" },
   { value: "advanced", label: "고급", desc: "심화 주제도 다룰 수 있음" },
 ];
+
+const DURATIONS = ["1주", "2주", "1개월", "3개월", "직접입력"];
+const DIFFICULTIES = ["입문", "초급", "중급", "고급"];
 
 // ─── 진행 표시 ────────────────────────────────────────────────────────────────
 
@@ -57,35 +62,53 @@ function StepIndicator({ current }) {
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
-  const [jobRole, setJobRole] = useState("");
-  const [selectedCategories, setSelectedCategories] = useState([]);
-  const [experience, setExperience] = useState("");
-  const [level, setLevel] = useState("");
-  const [categories, setCategories] = useState([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+
+  // Step 1 — 직군
+  const [jobRole, setJobRole] = useState("");
+
+  // Step 2 — 경험/레벨
+  const [experience, setExperience] = useState("");
+  const [level, setLevel] = useState("");
+
+  // Step 3 — 첫 로드맵
+  const [categories, setCategories] = useState([]);
+  const [topic, setTopic] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [interestLevel, setInterestLevel] = useState(0);
+  const [currentLevel, setCurrentLevel] = useState("");
+  const [targetLevel, setTargetLevel] = useState("");
+  const [referenceUrls, setReferenceUrls] = useState([""]);
+  const [duration, setDuration] = useState("");
+  const [customDuration, setCustomDuration] = useState("");
+  const [difficulty, setDifficulty] = useState("");
+  const [notes, setNotes] = useState("");
 
   useEffect(() => {
     supabase
       .from("categories")
       .select("id, name, icon")
       .is("user_id", null)
+      .order("name")
       .then(({ data }) => { if (data) setCategories(data); });
   }, []);
 
-  function toggleCategory(id) {
-    setSelectedCategories((prev) =>
-      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
-    );
+  // ─── URL 헬퍼 ───────────────────────────────────────────────────────────────
+
+  function addUrl() {
+    setReferenceUrls((prev) => [...prev, ""]);
+  }
+  function removeUrl(i) {
+    setReferenceUrls((prev) => prev.filter((_, idx) => idx !== i));
+  }
+  function updateUrl(i, val) {
+    setReferenceUrls((prev) => prev.map((u, idx) => (idx === i ? val : u)));
   }
 
-  async function handleComplete() {
-    setSaving(true);
-    setSaveError("");
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { router.push("/login"); return; }
+  // ─── profiles 저장 ──────────────────────────────────────────────────────────
 
-    // update 대신 upsert: profiles 행이 없을 때도 생성 보장
+  async function saveProfile(user) {
     const { error } = await supabase
       .from("profiles")
       .upsert({
@@ -94,23 +117,80 @@ export default function OnboardingPage() {
         experience,
         level,
         onboarding_done: true,
-        category_order: selectedCategories,
       });
+    return error;
+  }
 
-    if (error) {
-      console.error("[onboarding] 저장 실패:", error.message);
+  // ─── 완료 (profiles + roadmap) ──────────────────────────────────────────────
+
+  async function handleComplete() {
+    setSaving(true);
+    setSaveError("");
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { router.push("/login"); return; }
+
+    const profileError = await saveProfile(user);
+    if (profileError) {
+      console.error("[onboarding] profiles 저장 실패:", profileError.message);
       setSaveError("저장에 실패했습니다. 다시 시도해주세요.");
       setSaving(false);
       return;
     }
 
-    router.push("/study");
+    const finalDuration = duration === "직접입력" ? customDuration.trim() : duration;
+    const urls = referenceUrls.map((u) => u.trim()).filter(Boolean);
+
+    const { error: roadmapError } = await supabase.from("roadmaps").insert({
+      user_id: user.id,
+      topic: topic.trim(),
+      category_id: categoryId || null,
+      interest_level: interestLevel || null,
+      current_level: currentLevel.trim() || null,
+      target_level: targetLevel.trim() || null,
+      reference_urls: urls.length > 0 ? urls : null,
+      duration: finalDuration || null,
+      difficulty: difficulty || null,
+      notes: notes.trim() || null,
+      status: "active",
+    });
+
+    if (roadmapError) {
+      console.error("[onboarding] roadmaps 저장 실패:", roadmapError.message);
+      setSaveError("저장에 실패했습니다. 다시 시도해주세요.");
+      setSaving(false);
+      return;
+    }
+
+    router.push("/");
   }
+
+  // ─── 건너뛰기 (profiles만 저장) ─────────────────────────────────────────────
+
+  async function handleSkip() {
+    setSaving(true);
+    setSaveError("");
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { router.push("/login"); return; }
+
+    const profileError = await saveProfile(user);
+    if (profileError) {
+      console.error("[onboarding] profiles 저장 실패:", profileError.message);
+      setSaveError("저장에 실패했습니다. 다시 시도해주세요.");
+      setSaving(false);
+      return;
+    }
+
+    router.push("/");
+  }
+
+  // ─── 다음 버튼 활성화 조건 ───────────────────────────────────────────────────
 
   const canNext =
     (step === 1 && !!jobRole) ||
-    (step === 2 && selectedCategories.length > 0) ||
-    (step === 3 && !!experience && !!level);
+    (step === 2 && !!experience && !!level) ||
+    (step === 3 && !!topic.trim());
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
@@ -147,49 +227,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* Step 2 — 카테고리 */}
+        {/* Step 2 — 경험/레벨 */}
         {step === 2 && (
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-2xl font-bold">관심 분야를 선택해주세요</h1>
-              <p className="text-muted-foreground text-sm mt-1">
-                선택한 순서대로 홈에 표시됩니다 · 복수 선택 가능
-              </p>
-            </div>
-            {categories.length === 0 ? (
-              <div className="py-10 text-center text-muted-foreground text-sm">불러오는 중…</div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                {categories.map(({ id, name, icon }) => {
-                  const rank = selectedCategories.indexOf(id);
-                  const selected = rank !== -1;
-                  return (
-                    <button
-                      key={id}
-                      onClick={() => toggleCategory(id)}
-                      className={`rounded-xl border-2 p-4 text-left transition-all relative ${
-                        selected
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/40"
-                      }`}
-                    >
-                      {selected && (
-                        <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                          <span className="text-[10px] font-bold text-primary-foreground">{rank + 1}</span>
-                        </div>
-                      )}
-                      <span className="text-xl">{icon}</span>
-                      <p className="font-medium text-sm mt-1.5">{name}</p>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Step 3 — 경력/레벨 */}
-        {step === 3 && (
           <div className="space-y-6">
             <div>
               <h1 className="text-2xl font-bold">현재 레벨을 알려주세요</h1>
@@ -240,6 +279,204 @@ export default function OnboardingPage() {
           </div>
         )}
 
+        {/* Step 3 — 첫 로드맵 */}
+        {step === 3 && (
+          <div className="space-y-6">
+            <div>
+              <h1 className="text-2xl font-bold">첫 번째 학습을 설정해볼게요 🎯</h1>
+              <p className="text-muted-foreground text-sm mt-1">무엇을 배우고 싶으세요?</p>
+            </div>
+
+            {/* 주제 */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium">
+                학습 주제 <span className="text-destructive">*</span>
+              </p>
+              <input
+                type="text"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                placeholder="예: React 상태 관리, SQL 기초, 시스템 디자인"
+                className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/40 transition"
+              />
+            </div>
+
+            {/* 카테고리 */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium">카테고리</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCategoryId("")}
+                  className={`rounded-xl border-2 py-2.5 px-3 text-sm font-medium transition-all ${
+                    categoryId === ""
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-border hover:border-primary/40 text-muted-foreground"
+                  }`}
+                >
+                  자유 주제
+                </button>
+                {categories.map(({ id, name, icon }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setCategoryId(id)}
+                    className={`rounded-xl border-2 py-2.5 px-3 text-sm font-medium transition-all flex items-center gap-2 ${
+                      categoryId === id
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-border hover:border-primary/40 text-muted-foreground"
+                    }`}
+                  >
+                    {icon && <span>{icon}</span>}
+                    {name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 관심도 */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium">관심도</p>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setInterestLevel(n === interestLevel ? 0 : n)}
+                    className="p-1 transition-colors"
+                  >
+                    <Star
+                      size={24}
+                      className={n <= interestLevel ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/40"}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 현재/목표 지식 수준 */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <p className="text-sm font-medium">현재 지식 수준</p>
+                <input
+                  type="text"
+                  value={currentLevel}
+                  onChange={(e) => setCurrentLevel(e.target.value)}
+                  placeholder="예: useState만 알아요"
+                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/40 transition"
+                />
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">목표 지식 수준</p>
+                <input
+                  type="text"
+                  value={targetLevel}
+                  onChange={(e) => setTargetLevel(e.target.value)}
+                  placeholder="예: 상태 최적화까지"
+                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/40 transition"
+                />
+              </div>
+            </div>
+
+            {/* 참고 문서/사이트 */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium">참고 문서 / 사이트</p>
+              <div className="space-y-2">
+                {referenceUrls.map((url, i) => (
+                  <div key={i} className="flex gap-2">
+                    <input
+                      type="url"
+                      value={url}
+                      onChange={(e) => updateUrl(i, e.target.value)}
+                      placeholder="https://..."
+                      className="flex-1 rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/40 transition"
+                    />
+                    {referenceUrls.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeUrl(i)}
+                        className="p-3 rounded-xl border border-border hover:bg-muted transition-colors text-muted-foreground"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addUrl}
+                  className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Plus size={14} /> URL 추가
+                </button>
+              </div>
+            </div>
+
+            {/* 학습 기간 */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium">학습 기간</p>
+              <div className="flex flex-wrap gap-2">
+                {DURATIONS.map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setDuration(d)}
+                    className={`rounded-xl border-2 py-2 px-4 text-sm font-medium transition-all ${
+                      duration === d
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-border hover:border-primary/40 text-muted-foreground"
+                    }`}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+              {duration === "직접입력" && (
+                <input
+                  type="text"
+                  value={customDuration}
+                  onChange={(e) => setCustomDuration(e.target.value)}
+                  placeholder="예: 6주, 45일"
+                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/40 transition mt-2"
+                />
+              )}
+            </div>
+
+            {/* 학습 난이도 */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium">학습 난이도</p>
+              <div className="flex flex-wrap gap-2">
+                {DIFFICULTIES.map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setDifficulty(d)}
+                    className={`rounded-xl border-2 py-2 px-4 text-sm font-medium transition-all ${
+                      difficulty === d
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-border hover:border-primary/40 text-muted-foreground"
+                    }`}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 기타 메모 */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium">기타 메모</p>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="추가로 AI에게 전달하고 싶은 내용을 자유롭게 적어주세요"
+                rows={3}
+                className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/40 transition resize-none"
+              />
+            </div>
+          </div>
+        )}
+
         {/* 저장 오류 메시지 */}
         {saveError && (
           <p className="mt-6 text-sm text-destructive text-center">{saveError}</p>
@@ -258,16 +495,29 @@ export default function OnboardingPage() {
             <div />
           )}
 
-          {step < 3 ? (
-            <Button onClick={() => setStep((s) => s + 1)} disabled={!canNext}>
-              다음 <ChevronRight size={16} className="ml-1" />
-            </Button>
-          ) : (
-            <Button onClick={handleComplete} disabled={!canNext || saving}>
-              {saving ? "저장 중…" : "시작하기"}
-            </Button>
-          )}
+          <div className="flex items-center gap-4">
+            {step === 3 && (
+              <button
+                onClick={handleSkip}
+                disabled={saving}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                나중에 추가할게요
+              </button>
+            )}
+
+            {step < 3 ? (
+              <Button onClick={() => setStep((s) => s + 1)} disabled={!canNext}>
+                다음 <ChevronRight size={16} className="ml-1" />
+              </Button>
+            ) : (
+              <Button onClick={handleComplete} disabled={!canNext || saving}>
+                {saving ? "저장 중…" : "시작하기"}
+              </Button>
+            )}
+          </div>
         </div>
+
       </div>
     </div>
   );
