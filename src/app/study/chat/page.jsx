@@ -83,6 +83,7 @@ function ChatView() {
   const category = searchParams.get("category") ?? "일반";
   const title = searchParams.get("title") ?? "자유 학습";
   const sessionId = searchParams.get("session_id"); // 이어하기 진입 시 존재
+  const roadmapId = searchParams.get("roadmap_id");
 
   // { role: "user"|"assistant", content, score?, feedback? }
   const [messages, setMessages] = useState([]);
@@ -94,6 +95,7 @@ function ChatView() {
   const [saveError, setSaveError] = useState("");
   const [categoryName, setCategoryName] = useState(category); // UUID 대신 표시할 이름
   const [userProfile, setUserProfile] = useState(null);
+  const [roadmap, setRoadmap] = useState(null);
 
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
@@ -113,16 +115,17 @@ function ChatView() {
     });
   }, []);
 
-  // categories 테이블에서 카테고리 이름 조회
+  // categories 테이블에서 카테고리 이름 조회 (roadmap.category_id 우선)
   useEffect(() => {
-    if (!category || category === "일반") return;
+    const catId = roadmap?.category_id ?? category;
+    if (!catId || catId === "일반") return;
     supabase
       .from("categories")
       .select("name")
-      .eq("id", category)
+      .eq("id", catId)
       .maybeSingle()
       .then(({ data }) => { if (data?.name) setCategoryName(data.name); });
-  }, [category]);
+  }, [category, roadmap]);
 
   // 새 메시지마다 스크롤 하단으로
   useEffect(() => {
@@ -142,8 +145,27 @@ function ChatView() {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify({ category, title, messages }));
   }, [messages, category, title]);
 
-  // 진입 시 초기화: session_id 있으면 Supabase에서 복원, 없으면 sessionStorage → 새 시작
+  // 진입 시 초기화: roadmap_id 있으면 먼저 roadmap 조회 후 시작
   useEffect(() => {
+    if (roadmapId) {
+      supabase
+        .from("roadmaps")
+        .select("id, topic, category_id, difficulty, duration, current_level, target_level")
+        .eq("id", roadmapId)
+        .maybeSingle()
+        .then(({ data }) => {
+          const rm = data ?? null;
+          if (rm) setRoadmap(rm);
+          if (sessionId) {
+            loadSession(sessionId);
+          } else {
+            callApi([], "학습을 시작해주세요.", rm);
+          }
+        });
+      return;
+    }
+
+    // 기존 자유 학습 흐름
     if (sessionId) {
       loadSession(sessionId);
       return;
@@ -198,14 +220,15 @@ function ChatView() {
     }
   }
 
-  // API 호출 공통 함수
-  async function callApi(history, userMessage) {
+  // API 호출 공통 함수 (explicitRoadmap: init 시 state 반영 전 데이터 전달용)
+  async function callApi(history, userMessage, explicitRoadmap) {
+    const roadmapToSend = explicitRoadmap !== undefined ? explicitRoadmap : roadmap;
     setLoading(true);
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ category, title, messages: history, message: userMessage, userProfile }),
+        body: JSON.stringify({ category, title, messages: history, message: userMessage, userProfile, roadmap: roadmapToSend }),
       });
 
       if (!res.ok) {
@@ -400,9 +423,12 @@ function ChatView() {
 
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <Badge variant="secondary" className="shrink-0">{categoryName}</Badge>
-          {title && title !== categoryName && (
-            <h1 className="text-sm font-semibold truncate">{title}</h1>
-          )}
+          {(() => {
+            const displayTitle = roadmap?.topic ?? title;
+            return displayTitle && displayTitle !== categoryName ? (
+              <h1 className="text-sm font-semibold truncate">{displayTitle}</h1>
+            ) : null;
+          })()}
         </div>
 
         {/* 오늘은 여기까지 버튼 */}
