@@ -23,35 +23,10 @@ export async function GET(request) {
         },
       }
     );
-    const { data: exchangeData, error } = await supabase.auth.exchangeCodeForSession(code);
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
     console.log("[auth/callback] exchangeCodeForSession:", error ? `❌ ${error.message}` : "✅ 성공");
     if (!error) {
-      const user = exchangeData.user;
-      if (user) {
-        // exchangeCodeForSession에서 받은 user를 직접 사용 (getUser() 재호출 불필요)
-        const { data: firstProfile } = await supabase
-          .from("profiles")
-          .select("onboarding_done")
-          .eq("id", user.id)
-          .maybeSingle();
-
-        // null이면 트리거가 아직 row 생성 중일 수 있음 — 한 번 재시도
-        let profile = firstProfile;
-        if (profile === null) {
-          await new Promise((r) => setTimeout(r, 600));
-          const { data: retryProfile } = await supabase
-            .from("profiles")
-            .select("onboarding_done")
-            .eq("id", user.id)
-            .maybeSingle();
-          profile = retryProfile;
-        }
-
-        // onboarding_done이 명시적으로 true일 때만 홈으로 이동
-        return NextResponse.redirect(
-          profile?.onboarding_done === true ? `${origin}${next}` : `${origin}/onboarding`
-        );
-      }
+      // onboarding 체크는 홈 페이지(app/page.js)에서 수행
       return NextResponse.redirect(`${origin}${next}`);
     }
     return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(error.message)}`);

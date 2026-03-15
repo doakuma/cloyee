@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import {
   Card,
@@ -130,6 +131,18 @@ export default async function HomePage() {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   const userId = user?.id ?? null;
+
+  // 온보딩 미완료 유저 리다이렉트
+  if (userId) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("onboarding_done")
+      .eq("id", userId)
+      .maybeSingle();
+    if (profile?.onboarding_done !== true) {
+      redirect("/onboarding");
+    }
+  }
 
   const [
     { totalDays, streak, weekSessions, level, levelProgress, recentSessions },

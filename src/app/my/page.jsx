@@ -1,23 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
-import { LogOut, User } from "lucide-react";
+import { LogOut, Loader2, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function MyPage() {
   const [user, setUser] = useState(null);
-  const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
   }, []);
 
   async function handleLogout() {
+    setLoggingOut(true);
     await supabase.auth.signOut();
-    router.push("/login");
+    // 이동은 Sidebar의 SIGNED_OUT 핸들러가 처리
   }
 
   const avatarUrl = user?.user_metadata?.avatar_url;
@@ -52,9 +52,10 @@ export default function MyPage() {
         variant="outline"
         className="w-full flex items-center gap-2 text-destructive border-destructive/30 hover:bg-destructive/5"
         onClick={handleLogout}
+        disabled={loggingOut}
       >
-        <LogOut size={15} />
-        로그아웃
+        {loggingOut ? <Loader2 size={15} className="animate-spin" /> : <LogOut size={15} />}
+        {loggingOut ? "로그아웃 중…" : "로그아웃"}
       </Button>
     </div>
   );

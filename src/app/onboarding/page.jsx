@@ -63,6 +63,7 @@ export default function OnboardingPage() {
   const [level, setLevel] = useState("");
   const [categories, setCategories] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
     supabase
@@ -80,6 +81,7 @@ export default function OnboardingPage() {
 
   async function handleComplete() {
     setSaving(true);
+    setSaveError("");
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/login"); return; }
 
@@ -96,6 +98,7 @@ export default function OnboardingPage() {
 
     if (error) {
       console.error("[onboarding] 저장 실패:", error.message);
+      setSaveError("저장에 실패했습니다. 다시 시도해주세요.");
       setSaving(false);
       return;
     }
@@ -234,6 +237,11 @@ export default function OnboardingPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* 저장 오류 메시지 */}
+        {saveError && (
+          <p className="mt-6 text-sm text-destructive text-center">{saveError}</p>
         )}
 
         {/* 하단 버튼 */}

@@ -18,17 +18,24 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState(null);
+  const [visible, setVisible] = useState(true);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
+      if (event === "SIGNED_IN") {
+        setVisible(true);
+      }
       if (event === "SIGNED_OUT") {
+        setVisible(false);
         router.push("/login");
       }
     });
     return () => subscription.unsubscribe();
   }, [router]);
+
+  if (!visible) return null;
 
   return (
     <>
