@@ -488,7 +488,7 @@ function ChatView() {
     <div className="flex flex-col h-[100dvh]">
 
       {/* 상단 헤더 */}
-      <header className="flex items-center gap-2 sm:gap-3 px-4 sm:px-6 h-14 sm:h-16 border-b border-border bg-background shrink-0">
+      <header className="sticky top-0 z-10 flex items-center gap-2 sm:gap-3 px-4 sm:px-6 h-14 sm:h-16 border-b border-border bg-background shrink-0">
         <Link
           href="/study"
           className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
