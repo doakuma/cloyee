@@ -1,20 +1,13 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Plus } from "lucide-react";
-
-// ─── 난이도 배지 색상 ─────────────────────────────────────────────────────────
-
-const DIFFICULTY_STYLE = {
-  입문: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  초급: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  중급: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
-  고급: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-};
+import RoadmapCard from "@/components/study/RoadmapCard";
+import ArchivedSection from "@/components/study/ArchivedSection";
 
 // ─── 데이터 fetching ──────────────────────────────────────────────────────────
 
-async function getRoadmaps() {
+async function getRoadmapsByStatus(status) {
   let roadmaps = [];
   try {
     const supabase = await createSupabaseServerClient();
@@ -26,14 +19,13 @@ async function getRoadmaps() {
       .from("roadmaps")
       .select("id, topic, difficulty, duration, category_id, categories(name, icon)")
       .eq("user_id", user.id)
-      .eq("status", "active")
+      .eq("status", status)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
     roadmaps = data ?? [];
   } catch (e) {
-    console.error("[study] roadmaps 조회 실패:", e.message);
-    // 빈 배열로 fallback — 페이지는 정상 렌더링
+    console.error(`[study] roadmaps(${status}) 조회 실패:`, e.message);
   }
   return roadmaps;
 }
@@ -41,13 +33,16 @@ async function getRoadmaps() {
 // ─── 페이지 ───────────────────────────────────────────────────────────────────
 
 export default async function StudyPage() {
-  const roadmaps = await getRoadmaps();
+  const [active, archived] = await Promise.all([
+    getRoadmapsByStatus("active"),
+    getRoadmapsByStatus("paused"),
+  ]);
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="p-8 max-w-5xl mx-auto space-y-10">
 
       {/* 헤더 */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">내 학습 로드맵</h1>
           <p className="text-muted-foreground text-sm mt-1">학습할 주제를 선택하세요</p>
@@ -60,8 +55,8 @@ export default async function StudyPage() {
         </Link>
       </div>
 
-      {/* 로드맵 목록 */}
-      {roadmaps.length === 0 ? (
+      {/* 메인 — active */}
+      {active.length === 0 ? (
         <Card>
           <CardContent className="py-16 flex flex-col items-center gap-4 text-center">
             <p className="text-muted-foreground text-sm">아직 학습 로드맵이 없어요.</p>
@@ -75,32 +70,15 @@ export default async function StudyPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {roadmaps.map((rm) => (
-            <Link key={rm.id} href={`/study/chat?roadmap_id=${rm.id}`}>
-              <Card className="h-full cursor-pointer hover:ring-primary/40 hover:ring-2 transition-all">
-                <CardHeader className="pb-3">
-                  {rm.categories?.icon && (
-                    <span className="text-2xl mb-1">{rm.categories.icon}</span>
-                  )}
-                  <CardTitle className="text-base leading-snug">{rm.topic}</CardTitle>
-                  {rm.categories?.name && (
-                    <CardDescription>{rm.categories.name}</CardDescription>
-                  )}
-                </CardHeader>
-                <CardContent className="pt-0 flex items-center gap-2 flex-wrap">
-                  {rm.difficulty && (
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${DIFFICULTY_STYLE[rm.difficulty] ?? "bg-muted text-muted-foreground"}`}>
-                      {rm.difficulty}
-                    </span>
-                  )}
-                  {rm.duration && (
-                    <span className="text-xs text-muted-foreground">{rm.duration}</span>
-                  )}
-                </CardContent>
-              </Card>
-            </Link>
+          {active.map((rm) => (
+            <RoadmapCard key={rm.id} roadmap={rm} variant="active" />
           ))}
         </div>
+      )}
+
+      {/* 보관함 — paused (1개 이상일 때만) */}
+      {archived.length > 0 && (
+        <ArchivedSection roadmaps={archived} />
       )}
 
     </div>
