@@ -14,6 +14,7 @@ import {
   BookOpen,
   Trophy,
   ChevronRight,
+  Plus,
 } from "lucide-react";
 import IncompleteSessions from "@/components/home/IncompleteSessions";
 
@@ -86,32 +87,17 @@ async function getDashboardData(supabase, userId) {
   };
 }
 
-// ─── 카테고리 fetching (category_order 기반 정렬) ────────────────────────────
+// ─── 로드맵 fetching ──────────────────────────────────────────────────────────
 
-async function getCategories(supabase, userId) {
-  const { data: categories } = await supabase
-    .from("categories")
-    .select("id, name, icon, is_default")
-    .order("is_default", { ascending: false });
-
-  const all = categories ?? [];
-
-  if (!userId) return all;
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("category_order")
-    .eq("id", userId)
-    .maybeSingle();
-
-  const order = profile?.category_order;
-  if (!Array.isArray(order) || order.length === 0) return all;
-
-  const orderMap = new Map(order.map((id, i) => [id, i]));
-  const selected = order.map((id) => all.find((c) => c.id === id)).filter(Boolean);
-  const others = all.filter((c) => !orderMap.has(c.id));
-
-  return [...selected, ...others];
+async function getRoadmaps(supabase, userId) {
+  if (!userId) return [];
+  const { data } = await supabase
+    .from("roadmaps")
+    .select("id, topic, difficulty, duration, category_id, categories(name, icon)")
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .order("created_at", { ascending: false });
+  return data ?? [];
 }
 
 // ─── 미완료 세션 fetching (이어하기) ──────────────────────────────────────────
@@ -131,6 +117,15 @@ async function getIncompleteSessions(supabase, userId) {
   const { data } = await query;
   return data ?? [];
 }
+
+// ─── 난이도 배지 색상 ─────────────────────────────────────────────────────────
+
+const DIFFICULTY_STYLE = {
+  입문: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+  초급: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  중급: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+  고급: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+};
 
 // ─── 통계 카드 정의 ────────────────────────────────────────────────────────────
 
@@ -164,15 +159,16 @@ export default async function HomePage() {
 
   const [
     { totalDays, streak, weekSessions, level, levelProgress, recentSessions },
-    categories,
+    roadmaps,
     incompleteSessions,
   ] = await Promise.all([
     getDashboardData(supabase, userId),
-    getCategories(supabase, userId),
+    getRoadmaps(supabase, userId),
     getIncompleteSessions(supabase, userId),
   ]);
 
   const stats = statCards({ totalDays, streak, weekSessions, level });
+
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-10">
@@ -222,27 +218,58 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 카테고리 카드 4개 */}
+      {/* 학습 시작하기 — 로드맵 카드 */}
       <section>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-          학습 시작하기
-        </h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {categories.length === 0 ? (
-            <p className="col-span-4 text-sm text-muted-foreground">카테고리가 없습니다.</p>
-          ) : (
-            categories.map((cat, i) => (
-              <Link key={cat.id} href={`/study?category=${cat.id}`}>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            학습 시작하기
+          </h2>
+          <Link
+            href="/study/new"
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Plus size={13} /> 학습 추가하기
+          </Link>
+        </div>
+
+        {roadmaps.length === 0 ? (
+          <Card>
+            <CardContent className="py-10 text-center text-muted-foreground text-sm">
+              아직 학습 로드맵이 없어요.{" "}
+              <Link href="/study/new" className="underline underline-offset-2 hover:text-foreground">
+                학습을 추가해보세요!
+              </Link>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {roadmaps.map((rm) => (
+              <Link key={rm.id} href={`/study/chat?roadmap_id=${rm.id}`}>
                 <Card className="h-full cursor-pointer hover:ring-primary/40 hover:ring-2 transition-all">
-                  <CardHeader>
-                    <span className="text-2xl">{cat.icon}</span>
-                    <CardTitle className="mt-2">{cat.name}</CardTitle>
+                  <CardHeader className="pb-3">
+                    {rm.categories?.icon && (
+                      <span className="text-2xl mb-1">{rm.categories.icon}</span>
+                    )}
+                    <CardTitle className="text-base leading-snug">{rm.topic}</CardTitle>
+                    {rm.categories?.name && (
+                      <CardDescription>{rm.categories.name}</CardDescription>
+                    )}
                   </CardHeader>
+                  <CardContent className="pt-0 flex items-center gap-2 flex-wrap">
+                    {rm.difficulty && (
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${DIFFICULTY_STYLE[rm.difficulty] ?? "bg-muted text-muted-foreground"}`}>
+                        {rm.difficulty}
+                      </span>
+                    )}
+                    {rm.duration && (
+                      <span className="text-xs text-muted-foreground">{rm.duration}</span>
+                    )}
+                  </CardContent>
                 </Card>
               </Link>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* 최근 학습 기록 3개 */}
