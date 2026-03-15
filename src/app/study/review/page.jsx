@@ -107,7 +107,7 @@ function CodeInputPanel({ code, setCode, language, setLanguage, onStart, loading
       {/* Monaco Editor */}
       <div className="rounded-xl overflow-hidden border border-input" style={{ minHeight: 300 }}>
         <Editor
-          height="400px"
+          height="min(400px, 45vh)"
           language={language}
           value={code}
           theme="vs-dark"
@@ -184,6 +184,7 @@ function ReviewView() {
   const category = searchParams.get("category") ?? "일반";
 
   const [phase, setPhase] = useState("input"); // "input" | "reviewing"
+  const [mobileTab, setMobileTab] = useState("chat"); // "code" | "chat" — 모바일 전용
   const [code, setCode] = useState("");
   const [language, setLanguage] = useState("javascript");
   const [messages, setMessages] = useState([]);
@@ -345,10 +346,10 @@ function ReviewView() {
   const lastScore = messages.findLast((m) => m.role === "assistant")?.score;
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-[100dvh]">
 
       {/* 헤더 */}
-      <header className="flex items-center gap-3 px-6 h-16 border-b border-border bg-background shrink-0">
+      <header className="flex items-center gap-2 sm:gap-3 px-4 sm:px-6 h-14 sm:h-16 border-b border-border bg-background shrink-0">
         <Link
           href="/study"
           className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
@@ -377,7 +378,7 @@ function ReviewView() {
       {/* 본문 */}
       {phase === "input" ? (
         /* ── 코드 입력 단계 ── */
-        <div className="flex-1 overflow-y-auto p-8 max-w-3xl w-full mx-auto">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-8 max-w-3xl w-full mx-auto">
           <p className="text-muted-foreground text-sm mb-6">
             코드를 붙여넣고 리뷰 시작 버튼을 누르면 Cloyee가 대화형으로 리뷰해드립니다.
           </p>
@@ -391,67 +392,86 @@ function ReviewView() {
           />
         </div>
       ) : (
-        /* ── 리뷰 진행 단계 (2패널) ── */
-        <div className="flex flex-1 overflow-hidden">
+        /* ── 리뷰 진행 단계 (모바일: 탭, 데스크톱: 2패널) ── */
+        <div className="flex flex-col flex-1 overflow-hidden">
 
-          {/* 왼쪽: 코드 패널 */}
-          <div className="w-2/5 border-r border-border p-4 overflow-hidden flex flex-col">
-            <CodePreviewPanel code={code} language={language} />
+          {/* 모바일 탭바 */}
+          <div className="md:hidden flex border-b border-border shrink-0">
+            {[{ key: "chat", label: "리뷰" }, { key: "code", label: "코드" }].map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setMobileTab(key)}
+                className={`flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                  mobileTab === key
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
-          {/* 오른쪽: 채팅 패널 */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5 bg-muted/30">
-              {messages.map((msg, i) =>
-                msg.role === "user" ? (
-                  <UserMessage key={i} content={msg.content} />
-                ) : (
-                  <CloyeeMessage
-                    key={i}
-                    content={msg.content}
-                    feedback={msg.feedback}
-                    score={msg.score}
-                  />
-                )
-              )}
-              {loading && <ThinkingBubble />}
-              {isComplete && <CompleteBanner score={finalScore} />}
-              {saveError && (
-                <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3 text-sm mx-2">
-                  <span className="font-semibold">저장 실패</span>
-                  <span>{saveError}</span>
-                </div>
-              )}
-              <div ref={bottomRef} />
+          <div className="flex flex-1 overflow-hidden">
+            {/* 왼쪽: 코드 패널 — 데스크톱 항상 표시, 모바일은 "코드" 탭 선택 시만 */}
+            <div className={`${mobileTab === "code" ? "flex" : "hidden"} md:flex w-full md:w-2/5 border-r border-border p-4 overflow-hidden flex-col`}>
+              <CodePreviewPanel code={code} language={language} />
             </div>
 
-            {/* 메시지 입력창 */}
-            <form
-              onSubmit={sendMessage}
-              className="flex items-end gap-2 px-4 py-3 border-t border-border bg-background shrink-0"
-            >
-              <textarea
-                ref={inputRef}
-                rows={1}
-                className="flex-1 resize-none rounded-xl border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50 disabled:opacity-50 max-h-32 overflow-y-auto leading-relaxed"
-                placeholder={isComplete ? "리뷰가 완료됐습니다." : "질문하거나 추가 설명을 요청하세요… (Enter 전송)"}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                    sendMessage(e);
-                  }
-                }}
-                disabled={loading || isComplete}
-              />
-              <button
-                type="submit"
-                disabled={loading || isComplete || !input.trim()}
-                className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-primary text-primary-foreground disabled:opacity-40 transition-opacity"
+            {/* 오른쪽: 채팅 패널 — 데스크톱 항상 표시, 모바일은 "리뷰" 탭 선택 시만 */}
+            <div className={`${mobileTab === "chat" ? "flex" : "hidden"} md:flex flex-col flex-1 overflow-hidden`}>
+              <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-5 bg-muted/30">
+                {messages.map((msg, i) =>
+                  msg.role === "user" ? (
+                    <UserMessage key={i} content={msg.content} />
+                  ) : (
+                    <CloyeeMessage
+                      key={i}
+                      content={msg.content}
+                      feedback={msg.feedback}
+                      score={msg.score}
+                    />
+                  )
+                )}
+                {loading && <ThinkingBubble />}
+                {isComplete && <CompleteBanner score={finalScore} />}
+                {saveError && (
+                  <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3 text-sm mx-2">
+                    <span className="font-semibold">저장 실패</span>
+                    <span>{saveError}</span>
+                  </div>
+                )}
+                <div ref={bottomRef} />
+              </div>
+
+              {/* 메시지 입력창 */}
+              <form
+                onSubmit={sendMessage}
+                className="flex items-end gap-2 px-4 py-3 border-t border-border bg-background shrink-0"
               >
-                <Send size={16} />
-              </button>
-            </form>
+                <textarea
+                  ref={inputRef}
+                  rows={1}
+                  className="flex-1 resize-none rounded-xl border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50 disabled:opacity-50 max-h-32 overflow-y-auto leading-relaxed"
+                  placeholder={isComplete ? "리뷰가 완료됐습니다." : "질문하거나 추가 설명을 요청하세요…"}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                      sendMessage(e);
+                    }
+                  }}
+                  disabled={loading || isComplete}
+                />
+                <button
+                  type="submit"
+                  disabled={loading || isComplete || !input.trim()}
+                  className="shrink-0 flex items-center justify-center w-11 h-11 rounded-xl bg-primary text-primary-foreground disabled:opacity-40 transition-opacity"
+                >
+                  {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                </button>
+              </form>
+            </div>
           </div>
         </div>
       )}

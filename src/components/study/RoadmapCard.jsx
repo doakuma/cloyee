@@ -92,7 +92,7 @@ export default function RoadmapCard({ roadmap, variant = "active" }) {
               <button
                 onClick={(e) => e.preventDefault()}
                 disabled={updating}
-                className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors opacity-60 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100"
                 aria-label="메뉴"
               >
                 <MoreVertical size={15} />

@@ -39,7 +39,7 @@ export default async function StudyPage() {
   ]);
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-10">
+    <div className="px-4 sm:px-8 pt-4 sm:pt-8 pb-8 max-w-5xl mx-auto space-y-10">
 
       {/* 헤더 */}
       <div className="flex items-center justify-between">
@@ -49,7 +49,7 @@ export default async function StudyPage() {
         </div>
         <Link
           href="/study/new"
-          className="flex items-center gap-1.5 text-sm font-medium bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:opacity-90 transition-opacity"
+          className="shrink-0 whitespace-nowrap flex items-center gap-1.5 text-sm font-medium bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:opacity-90 transition-opacity"
         >
           <Plus size={15} /> 새 로드맵 추가
         </Link>

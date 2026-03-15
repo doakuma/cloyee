@@ -172,7 +172,7 @@ export default async function DashboardPage() {
 
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-10">
+    <div className="px-4 sm:px-8 pt-4 sm:pt-8 pb-8 max-w-5xl mx-auto space-y-10">
 
       {/* 헤더 */}
       <div>

@@ -243,7 +243,7 @@ export default function GrowthPage() {
   const { total, level, levelProgress, streak, weekDays, categoryStats, monthly } = stats;
 
   return (
-    <div className="p-8 max-w-3xl mx-auto space-y-8">
+    <div className="px-4 sm:px-8 pt-4 sm:pt-8 pb-8 max-w-3xl mx-auto space-y-8">
 
       {/* 헤더 */}
       <div>
@@ -253,12 +253,12 @@ export default function GrowthPage() {
 
       {/* 레벨 + Streak */}
       {loading ? (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Skeleton className="h-44" />
           <Skeleton className="h-44" />
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <LevelCard level={level} levelProgress={levelProgress} total={total} />
           <StreakCard streak={streak} weekDays={weekDays} />
         </div>

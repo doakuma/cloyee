@@ -73,7 +73,7 @@ export default function IncompleteSessions({ initialSessions }) {
             <Button
               variant="ghost"
               size="icon"
-              className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+              className="absolute top-2 right-2 h-8 w-8 opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10"
               onClick={(e) => {
                 e.preventDefault();
                 setDeleteTargetId(session.id);

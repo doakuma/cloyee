@@ -410,10 +410,10 @@ function ChatView() {
   const canPause = !loading && !isComplete && !pausing && messages.length > 0;
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-[100dvh]">
 
       {/* 상단 헤더 */}
-      <header className="flex items-center gap-3 px-6 h-16 border-b border-border bg-background shrink-0">
+      <header className="flex items-center gap-2 sm:gap-3 px-4 sm:px-6 h-14 sm:h-16 border-b border-border bg-background shrink-0">
         <Link
           href="/study"
           className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
@@ -435,14 +435,14 @@ function ChatView() {
         <button
           onClick={pauseSession}
           disabled={!canPause}
-          className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="shrink-0 flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {pausing ? (
             <Loader2 size={14} className="animate-spin" />
           ) : (
             <PauseCircle size={14} />
           )}
-          오늘은 여기까지
+          <span className="hidden sm:inline">오늘은 여기까지</span>
         </button>
 
         {lastScore != null && (
@@ -459,7 +459,7 @@ function ChatView() {
       </header>
 
       {/* 메시지 영역 */}
-      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5 bg-muted/30">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 sm:py-6 space-y-5 bg-muted/30">
         {messages.map((msg, i) =>
           msg.role === "user" ? (
             <UserMessage key={i} content={msg.content} />
@@ -487,13 +487,13 @@ function ChatView() {
       {/* 하단 입력창 */}
       <form
         onSubmit={sendMessage}
-        className="flex items-end gap-2 px-6 py-4 border-t border-border bg-background shrink-0"
+        className="flex items-end gap-2 px-4 sm:px-6 py-3 sm:py-4 border-t border-border bg-background shrink-0"
       >
         <textarea
           ref={inputRef}
           rows={1}
           className="flex-1 resize-none rounded-xl border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/50 disabled:opacity-50 max-h-36 overflow-y-auto leading-relaxed"
-          placeholder={isComplete ? "학습이 완료됐습니다." : "메시지를 입력하세요… (Enter로 전송)"}
+          placeholder={isComplete ? "학습이 완료됐습니다." : "메시지를 입력하세요…"}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
@@ -506,7 +506,7 @@ function ChatView() {
         <button
           type="submit"
           disabled={loading || isComplete || !input.trim()}
-          className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-primary text-primary-foreground disabled:opacity-40 transition-opacity"
+          className="shrink-0 flex items-center justify-center w-11 h-11 rounded-xl bg-primary text-primary-foreground disabled:opacity-40 transition-opacity"
         >
           {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
         </button>
