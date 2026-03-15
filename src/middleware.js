@@ -2,7 +2,6 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 
 export async function middleware(request) {
-  // x-pathname을 request 헤더에 설정해야 server component의 headers()로 읽힘
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-pathname", request.nextUrl.pathname);
 
@@ -32,16 +31,24 @@ export async function middleware(request) {
   );
 
   const { data: { user } } = await supabase.auth.getUser();
-
   const pathname = request.nextUrl.pathname;
+
+  // 게스트도 접근 가능한 경로
   const isPublic =
     pathname === "/" ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/privacy") ||
-    pathname.startsWith("/terms");
+    pathname.startsWith("/terms") ||
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/study") ||
+    pathname.startsWith("/history") ||
+    pathname.startsWith("/growth");
 
-  if (!user && !isPublic) {
+  // 로그인 필요 경로 (개인 설정 등)
+  const isPrivate = pathname.startsWith("/my");
+
+  if (!user && isPrivate) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

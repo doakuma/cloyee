@@ -333,6 +333,7 @@ function ReviewView() {
         session_id: data.id,
         code,
         messages: allMessages,
+        user_id: userId ?? null,
       });
       if (revErr) { console.error("[review] reviews insert 실패:", revErr.message); return false; }
 

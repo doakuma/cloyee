@@ -395,6 +395,7 @@ function ChatView() {
           session_id: data.id,
           code: null,
           messages: allMessages,
+          user_id: userId ?? null,
         });
         if (revErr) { console.error("[chat] reviews insert 실패:", revErr.message); return false; }
       }
@@ -457,7 +458,9 @@ function ChatView() {
           isDev && console.log("[pause] sessions insert 성공 — session id:", data.id);
           const { error: revErr } = await supabase.from("reviews").insert({
             session_id: data.id,
+            code: null,
             messages: apiMessages,
+            user_id: userId ?? null,
           });
           if (revErr) console.error("[pause] reviews insert 실패:", revErr.message, "| code:", revErr.code);
           else {
