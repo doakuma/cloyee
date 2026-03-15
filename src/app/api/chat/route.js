@@ -5,8 +5,12 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const isDev = process.env.NODE_ENV !== "production";
 
-// 개발/테스트: claude-haiku-4-5-20251001 (저비용)
+// 개발/테스트: claude-haiku-4-5 (저비용)
 // 프로덕션:    claude-sonnet-4-6 (고품질)
+
+// 스트림 청크 구분자 — 메시지 텍스트와 메타데이터 JSON을 분리
+const META_SEP = "<<<CLOYEE_META>>>";
+
 function buildSystemPrompt(category, title, userProfile, roadmap) {
   const profileSection = userProfile
     ? `\n## 학습자 정보\n- 직군: ${userProfile.job_role ?? "미설정"}\n- 경력: ${userProfile.experience ?? "미설정"}\n- 레벨: ${userProfile.level ?? "미설정"}\n이에 맞는 난이도와 톤으로 대화해주세요.\n`
@@ -27,18 +31,14 @@ ${profileSection}
 - 카테고리: ${category}
 - 주제: ${title}
 ${roadmapContext}
-## 응답 규칙
-반드시 아래 JSON 형식으로만 응답하세요. JSON 외 다른 텍스트는 절대 포함하지 마세요.
+## 응답 형식
+아래 순서를 정확히 지켜 응답하세요:
 
-\`\`\`json
-{
-  "message": "학습자에게 전달할 메시지 (질문, 힌트, 피드백 등)",
-  "score": 0~100 사이 정수 (현재까지의 이해도 점수),
-  "feedback": "이번 답변에 대한 짧은 피드백 (잘한 점 또는 보완할 점)",
-  "is_complete": true 또는 false (학습 목표를 충분히 달성했다고 판단될 때 true),
-  "summary": "is_complete가 true일 때만 작성. 오늘 학습한 내용 요약. false면 빈 문자열"
-}
-\`\`\`
+1. 학습자에게 전달할 메시지를 자유롭게 작성합니다 (질문, 힌트, 피드백 등)
+2. 메시지 작성 후 반드시 아래 구분자를 그대로 출력합니다:
+<<<CLOYEE_META>>>
+3. 구분자 바로 다음 줄에 아래 JSON을 한 줄로 출력합니다 (코드블록 없이):
+{"score":점수,"feedback":"피드백","is_complete":true또는false,"summary":"요약"}
 
 ## is_complete 판단 기준
 - 핵심 개념을 학습자가 자신의 언어로 설명할 수 있을 때
@@ -51,16 +51,14 @@ ${roadmapContext}
 }
 
 export async function POST(request) {
-  // API 키 로드 확인
   const apiKey = process.env.ANTHROPIC_API_KEY;
   isDev && console.log("[chat] ANTHROPIC_API_KEY 로드 여부:", apiKey ? `설정됨 (sk-...${apiKey.slice(-4)})` : "❌ 없음");
 
   const supabaseServer = await createSupabaseServerClient();
   const { data: { user } } = await supabaseServer.auth.getUser();
-  const userId = user?.id ?? null;
 
   const { category, title, messages, message, userProfile, roadmap } = await request.json();
-  isDev && console.log("[chat] 요청 수신 — category:", category, "| title:", title, "| message:", message?.slice(0, 50));
+  isDev && console.log("[chat] 요청 수신 — category:", category, "| message:", message?.slice(0, 50));
 
   if (!message?.trim()) {
     return Response.json({ error: "message가 필요합니다." }, { status: 400 });
@@ -71,48 +69,94 @@ export async function POST(request) {
     { role: "user", content: message },
   ];
 
-  let raw;
-  try {
-    isDev && console.log("[chat] Claude API 호출 시작 — 메시지 수:", conversationMessages.length);
-    const response = await client.messages.create({
-      model: DEFAULT_MODEL,
-      max_tokens: 1024,
-      system: buildSystemPrompt(category ?? "일반", title ?? "자유 학습", userProfile ?? null, roadmap ?? null),
-      messages: conversationMessages,
-    });
-    raw = response.content[0].text;
-    isDev && console.log("[chat] Claude 응답 수신 — 길이:", raw.length, "| 앞부분:", raw.slice(0, 100));
-  } catch (err) {
-    console.error("[chat] ❌ Claude API 오류");
-    console.error("  name   :", err.name);
-    console.error("  message:", err.message);
-    console.error("  status :", err.status);
-    console.error("  headers:", err.headers);
-    console.error("  body   :", JSON.stringify(err.error ?? err.body ?? null, null, 2));
-    return Response.json({ error: "Claude API 호출에 실패했습니다.", detail: err.message }, { status: 502 });
-  }
+  const encoder = new TextEncoder();
 
-  let parsed;
-  try {
-    parsed = parseClaudeJson(raw);
-  } catch (err) {
-    console.error("[chat] JSON 파싱 실패 — fallback 적용:", err.message);
-    return Response.json({
-      message: "응답을 처리하는 중 문제가 발생했습니다. 다시 시도해주세요.",
-      score: 0,
-      feedback: "",
-      is_complete: false,
-      summary: "",
-    });
-  }
+  const readable = new ReadableStream({
+    async start(controller) {
+      // buffer: 아직 클라이언트에 보내지 않은 누적 텍스트
+      let buffer = "";
+      let metaFound = false;
 
-  const rawScore = parsed.score ?? 0;
-  return Response.json({
-    message: parsed.message ?? "",
-    score: Math.min(100, Math.max(0, rawScore)),
-    feedback: parsed.feedback ?? "",
-    is_complete: parsed.is_complete ?? false,
-    summary: parsed.summary ?? "",
-    user_id: userId,
+      try {
+        isDev && console.log("[chat] Claude stream 시작 — 메시지 수:", conversationMessages.length);
+
+        const stream = client.messages.stream({
+          model: DEFAULT_MODEL,
+          max_tokens: 1024,
+          system: buildSystemPrompt(category ?? "일반", title ?? "자유 학습", userProfile ?? null, roadmap ?? null),
+          messages: conversationMessages,
+        });
+
+        for await (const event of stream) {
+          if (event.type !== "content_block_delta" || event.delta.type !== "text_delta") continue;
+
+          buffer += event.delta.text;
+
+          if (metaFound) continue; // 구분자 이후는 JSON 버퍼링만
+
+          const sepIdx = buffer.indexOf(META_SEP);
+          if (sepIdx !== -1) {
+            // 구분자 발견 — 앞부분 텍스트 flush
+            metaFound = true;
+            const textPart = buffer.slice(0, sepIdx);
+            if (textPart) {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(textPart)}\n\n`));
+            }
+            buffer = buffer.slice(sepIdx + META_SEP.length);
+          } else {
+            // 구분자 미발견 — 구분자가 청크 경계에 걸릴 수 있으므로 마지막 (SEP_LEN-1) 글자는 보류
+            const safeLen = buffer.length - (META_SEP.length - 1);
+            if (safeLen > 0) {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(buffer.slice(0, safeLen))}\n\n`));
+              buffer = buffer.slice(safeLen);
+            }
+          }
+        }
+
+        // 스트림 완료 — 남은 버퍼 처리
+        let meta = { score: 0, feedback: "", is_complete: false, summary: "" };
+
+        if (!metaFound) {
+          // 구분자 없음 — 전체를 텍스트로 처리 (fallback)
+          isDev && console.warn("[chat] META 구분자 없음 — fallback");
+          if (buffer) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(buffer)}\n\n`));
+          }
+        } else {
+          // buffer에 JSON 메타데이터가 남아 있음
+          const metaStr = buffer.trim();
+          if (metaStr) {
+            try {
+              const parsed = parseClaudeJson(metaStr);
+              const rawScore = parsed.score ?? 0;
+              meta = {
+                score: Math.min(100, Math.max(0, rawScore)),
+                feedback: parsed.feedback ?? "",
+                is_complete: parsed.is_complete ?? false,
+                summary: parsed.summary ?? "",
+              };
+            } catch (e) {
+              isDev && console.error("[chat] META JSON 파싱 실패:", e.message, "| raw:", metaStr.slice(0, 200));
+            }
+          }
+        }
+
+        isDev && console.log("[chat] 스트림 완료 — score:", meta.score, "| is_complete:", meta.is_complete);
+        controller.enqueue(encoder.encode(`data: [DONE]${JSON.stringify(meta)}\n\n`));
+      } catch (err) {
+        console.error("[chat] ❌ Claude stream 오류:", err.message);
+        controller.enqueue(encoder.encode(`data: [ERROR]${JSON.stringify({ error: err.message })}\n\n`));
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(readable, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+    },
   });
 }

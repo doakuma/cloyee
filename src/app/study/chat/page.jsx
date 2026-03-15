@@ -88,7 +88,8 @@ function ChatView() {
   // { role: "user"|"assistant", content, score?, feedback? }
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);   // 연결 대기 (ThinkingBubble)
+  const [streaming, setStreaming] = useState(false); // 청크 수신 중 (입력 비활성)
   const [pausing, setPausing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
@@ -132,12 +133,12 @@ function ChatView() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  // 로딩 완료 후 입력창 포커스
+  // 로딩/스트리밍 완료 후 입력창 포커스
   useEffect(() => {
-    if (!loading && !isComplete) {
+    if (!loading && !streaming && !isComplete) {
       inputRef.current?.focus();
     }
-  }, [loading, isComplete]);
+  }, [loading, streaming, isComplete]);
 
   // 메시지 변경 시 sessionStorage에 저장
   useEffect(() => {
@@ -220,43 +221,111 @@ function ChatView() {
     }
   }
 
-  // API 호출 공통 함수 (explicitRoadmap: init 시 state 반영 전 데이터 전달용)
+  // API 호출 — SSE 스트리밍 수신 (explicitRoadmap: init 시 state 반영 전 데이터 전달용)
   async function callApi(history, userMessage, explicitRoadmap) {
     const roadmapToSend = explicitRoadmap !== undefined ? explicitRoadmap : roadmap;
-    setLoading(true);
+
+    setLoading(true);   // ThinkingBubble 표시
+    setStreaming(false);
+
+    let res;
     try {
-      const res = await fetch("/api/chat", {
+      res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ category, title, messages: history, message: userMessage, userProfile, roadmap: roadmapToSend }),
       });
+    } catch (err) {
+      console.error("[chat] fetch 실패:", err);
+      setMessages((prev) => [...prev, { role: "assistant", content: "네트워크 오류가 발생했습니다. 다시 시도해주세요." }]);
+      setLoading(false);
+      return;
+    }
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        isDev && console.error("[chat] API 오류:", res.status, errData);
-        throw new Error(errData.error ?? "API 오류");
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      isDev && console.error("[chat] API 오류:", res.status, errData);
+      setMessages((prev) => [...prev, { role: "assistant", content: "오류가 발생했습니다. 다시 시도해주세요." }]);
+      setLoading(false);
+      return;
+    }
+
+    // ── 스트림 읽기 시작 ──────────────────────────────────────────────────────
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let lineBuffer = "";       // SSE 라인 분리용 버퍼
+    let accumulated = "";      // 누적 메시지 텍스트
+    let meta = null;
+    let firstChunk = true;
+
+    setStreaming(true);
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        lineBuffer += decoder.decode(value, { stream: true });
+        const lines = lineBuffer.split("\n");
+        lineBuffer = lines.pop(); // 마지막 불완전 라인은 보류
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6);
+
+          if (data.startsWith("[DONE]")) {
+            meta = JSON.parse(data.slice(6));
+          } else if (data.startsWith("[ERROR]")) {
+            const { error } = JSON.parse(data.slice(7));
+            throw new Error(error ?? "스트림 오류");
+          } else {
+            // 텍스트 청크 — JSON.stringify로 인코딩된 문자열
+            const text = JSON.parse(data);
+            accumulated += text;
+
+            if (firstChunk) {
+              // 첫 청크 → ThinkingBubble 제거, 스트리밍 메시지 추가
+              firstChunk = false;
+              setLoading(false);
+              setMessages((prev) => [...prev, { role: "assistant", content: accumulated, score: null, feedback: null }]);
+            } else {
+              setMessages((prev) => {
+                const next = [...prev];
+                next[next.length - 1] = { ...next[next.length - 1], content: accumulated };
+                return next;
+              });
+            }
+          }
+        }
       }
 
-      const data = await res.json();
+      // 남은 lineBuffer 처리 (스트림이 \n 없이 끝난 경우)
+      if (lineBuffer.startsWith("data: ")) {
+        const data = lineBuffer.slice(6);
+        if (data.startsWith("[DONE]")) meta = JSON.parse(data.slice(6));
+      }
 
-      const assistantMsg = {
-        role: "assistant",
-        content: data.message,
-        score: data.score,
-        feedback: data.feedback,
-      };
+      // 메타데이터로 최종 메시지 업데이트
+      setMessages((prev) => {
+        const next = [...prev];
+        next[next.length - 1] = {
+          role: "assistant",
+          content: accumulated,
+          score: meta?.score ?? null,
+          feedback: meta?.feedback ?? null,
+        };
+        return next;
+      });
 
-      setMessages((prev) => [...prev, assistantMsg]);
-
-      if (data.is_complete) {
+      if (meta?.is_complete) {
         setIsComplete(true);
-        setFinalScore(data.score);
+        setFinalScore(meta.score);
         const allMessages = [
           ...history,
           { role: "user", content: userMessage },
-          { role: "assistant", content: data.message },
+          { role: "assistant", content: accumulated },
         ];
-        const saved = await saveSession(data.summary, data.score, allMessages);
+        const saved = await saveSession(meta.summary, meta.score, allMessages);
         if (saved) {
           sessionStorage.removeItem(SESSION_KEY);
           setTimeout(() => router.push("/history"), 2000);
@@ -265,13 +334,19 @@ function ChatView() {
         }
       }
     } catch (err) {
-      console.error(err);
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "오류가 발생했습니다. 다시 시도해주세요." },
-      ]);
+      console.error("[chat] 스트림 처리 오류:", err);
+      if (firstChunk) {
+        setMessages((prev) => [...prev, { role: "assistant", content: "오류가 발생했습니다. 다시 시도해주세요." }]);
+      } else {
+        setMessages((prev) => {
+          const next = [...prev];
+          next[next.length - 1] = { ...next[next.length - 1], content: accumulated || "오류가 발생했습니다. 다시 시도해주세요." };
+          return next;
+        });
+      }
     } finally {
       setLoading(false);
+      setStreaming(false);
     }
   }
 
@@ -407,7 +482,7 @@ function ChatView() {
   }
 
   const lastScore = messages.findLast((m) => m.role === "assistant")?.score;
-  const canPause = !loading && !isComplete && !pausing && messages.length > 0;
+  const canPause = !loading && !streaming && !isComplete && !pausing && messages.length > 0;
 
   return (
     <div className="flex flex-col h-[100dvh]">
@@ -501,14 +576,14 @@ function ChatView() {
               sendMessage(e);
             }
           }}
-          disabled={loading || isComplete}
+          disabled={loading || streaming || isComplete}
         />
         <button
           type="submit"
-          disabled={loading || isComplete || !input.trim()}
+          disabled={loading || streaming || isComplete || !input.trim()}
           className="shrink-0 flex items-center justify-center w-11 h-11 rounded-xl bg-primary text-primary-foreground disabled:opacity-40 transition-opacity"
         >
-          {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+          {(loading || streaming) ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
         </button>
       </form>
     </div>
