@@ -109,10 +109,10 @@ export default function Sidebar() {
             </div>
           ) : (
             /* 로그인 상태 */
-            <>
+            <div className="flex items-center gap-1">
               <Link
                 href="/my"
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-accent transition-colors"
+                className="flex flex-1 items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-accent transition-colors min-w-0"
               >
                 {user?.user_metadata?.avatar_url ? (
                   <img
@@ -132,12 +132,13 @@ export default function Sidebar() {
               <button
                 onClick={handleLogout}
                 disabled={loggingOut}
-                className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
+                title="로그아웃"
+                className="flex items-center justify-center rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50 shrink-0"
               >
                 <LogOut size={16} />
-                {loggingOut ? "로그아웃 중..." : "로그아웃"}
+                <span className="sr-only">로그아웃</span>
               </button>
-            </>
+            </div>
           )}
         </div>
       </aside>
