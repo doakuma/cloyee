@@ -8,6 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Send, Loader2, CheckCircle2, PauseCircle } from "lucide-react";
 import MarkdownMessage from "@/components/common/MarkdownMessage";
+import ChoiceButtons from "@/components/common/ChoiceButtons";
+import { parseChoices } from "@/utils/parseChoices";
 
 const isDev = process.env.NODE_ENV !== "production";
 
@@ -100,6 +102,11 @@ function ChatView() {
 
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
+
+  function handleChoiceSelect(choice) {
+    setInput(choice);
+    inputRef.current?.focus();
+  }
 
   const SESSION_KEY = "cloyee_chat_session";
 
@@ -313,6 +320,7 @@ function ChatView() {
           content: accumulated,
           score: meta?.score ?? null,
           feedback: meta?.feedback ?? null,
+          isDone: true,
         };
         return next;
       });
@@ -538,18 +546,25 @@ function ChatView() {
 
       {/* 메시지 영역 */}
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 sm:py-6 space-y-5 bg-muted/30">
-        {messages.map((msg, i) =>
-          msg.role === "user" ? (
-            <UserMessage key={i} content={msg.content} />
-          ) : (
-            <CloyeeMessage
-              key={i}
-              content={msg.content}
-              feedback={msg.feedback}
-              score={msg.score}
-            />
-          )
-        )}
+        {messages.map((msg, i) => {
+          if (msg.role === "user") return <UserMessage key={i} content={msg.content} />;
+          const { cleanText, choices } = parseChoices(msg.content);
+          const isLastMsg = i === messages.length - 1;
+          return (
+            <div key={i}>
+              <CloyeeMessage
+                content={cleanText}
+                feedback={msg.feedback}
+                score={msg.score}
+              />
+              {msg.isDone && isLastMsg && choices.length > 0 && (
+                <div className="ml-1 mt-1">
+                  <ChoiceButtons choices={choices} onSelect={handleChoiceSelect} />
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         {loading && <ThinkingBubble />}
         {isComplete && <CompleteBanner score={finalScore} />}
