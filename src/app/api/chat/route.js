@@ -11,7 +11,7 @@ const isDev = process.env.NODE_ENV !== "production";
 // 스트림 청크 구분자 — 메시지 텍스트와 메타데이터 JSON을 분리
 const META_SEP = "<<<CLOYEE_META>>>";
 
-function buildSystemPrompt(category, title, userProfile, roadmap) {
+function buildSystemPrompt(category, title, userProfile, roadmap, chatMode) {
   const profileSection = userProfile
     ? `\n## 학습자 정보\n- 직군: ${userProfile.job_role ?? "미설정"}\n- 경력: ${userProfile.experience ?? "미설정"}\n- 레벨: ${userProfile.level ?? "미설정"}\n이에 맞는 난이도와 톤으로 대화해주세요.\n`
     : "";
@@ -45,9 +45,10 @@ ${roadmapContext}
 - 주요 예시에 대해 올바른 답변을 3회 이상 연속으로 할 때
 - score가 80점 이상이고 학습 흐름이 자연스럽게 마무리될 때
 
-## 객관식 선택지 (선택적 사용)
-사용자의 이해를 확인하거나 선택지가 명확한 개념을 물어볼 때만 아래 형식으로 선택지를 제공한다.
-모든 응답에 붙이지 말고, 선택지가 2~4개이고 내용이 명확히 구분될 때만 사용한다.
+## 객관식 선택지
+${chatMode === "choice"
+  ? `선택형 학습 모드입니다. 모든 질문은 반드시 아래 [[CHOICES]] 형식의 4지선다(A~D)로 제공하라. 보기는 정확히 4개, 각 15자 이내로 작성한다.`
+  : `사용자의 이해를 확인하거나 선택지가 명확한 개념을 물어볼 때만 아래 형식으로 선택지를 제공한다. 모든 응답에 붙이지 말고, 선택지가 2~4개이고 내용이 명확히 구분될 때만 사용한다.`}
 
 [[CHOICES]]
 A. 첫 번째 선택지
@@ -66,7 +67,7 @@ export async function POST(request) {
   const supabaseServer = await createSupabaseServerClient();
   const { data: { user } } = await supabaseServer.auth.getUser();
 
-  const { category, title, messages, message, userProfile, roadmap } = await request.json();
+  const { category, title, messages, message, userProfile, roadmap, chatMode } = await request.json();
   isDev && console.log("[chat] 요청 수신 — category:", category, "| message:", message?.slice(0, 50));
 
   if (!message?.trim()) {
@@ -74,7 +75,7 @@ export async function POST(request) {
   }
 
   const conversationMessages = [
-    ...(messages ?? []),
+    ...(messages ?? []).map(({ role, content }) => ({ role, content })),
     { role: "user", content: message },
   ];
 
@@ -92,7 +93,7 @@ export async function POST(request) {
         const stream = client.messages.stream({
           model: DEFAULT_MODEL,
           max_tokens: 1024,
-          system: buildSystemPrompt(category ?? "일반", title ?? "자유 학습", userProfile ?? null, roadmap ?? null),
+          system: buildSystemPrompt(category ?? "일반", title ?? "자유 학습", userProfile ?? null, roadmap ?? null, chatMode ?? null),
           messages: conversationMessages,
         });
 

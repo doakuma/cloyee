@@ -16,16 +16,33 @@ import {
   ChevronRight,
   Plus,
 } from "lucide-react";
-import IncompleteSessions from "@/components/home/IncompleteSessions";
 
+// ─── 유틸 ─────────────────────────────────────────────────────────────────────
 
+function getElapsedLabel(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const minutes = Math.floor(diff / (1000 * 60));
+  if (days > 0) return `${days}일 전`;
+  if (hours > 0) return `${hours}시간 전`;
+  if (minutes > 0) return `${minutes}분 전`;
+  return "방금 전";
+}
+
+function getRoadmapStatus(statuses, roadmapId) {
+  const session = statuses[roadmapId];
+  if (!session) return { status: "new", label: "시작 전", time: null };
+  if (session.is_complete) return { status: "done", label: "완료", time: session.created_at };
+  return { status: "ongoing", label: "진행 중", time: session.created_at };
+}
 
 // ─── 데이터 fetching ──────────────────────────────────────────────────────────
 
 async function getDashboardData(supabase, userId) {
   let query = supabase
     .from("sessions")
-    .select("id, title, category_id, created_at, categories(name)")
+    .select("id, title, category_id, created_at, categories(name), roadmaps(topic)")
     .eq("is_complete", true)
     .order("created_at", { ascending: false });
 
@@ -37,7 +54,6 @@ async function getDashboardData(supabase, userId) {
     return { totalDays: 0, streak: 0, weekSessions: 0, level: 1, levelProgress: 0, recentSessions: [] };
   }
 
-  // 총 학습일 (날짜 중복 제거)
   const dateKey = (d) => {
     const dt = new Date(d);
     return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
@@ -45,22 +61,16 @@ async function getDashboardData(supabase, userId) {
   const uniqueDates = new Set(sessions.map((s) => dateKey(s.created_at)));
   const totalDays = uniqueDates.size;
 
-  // 이번 주 세션
   const startOfWeek = new Date();
   startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
   startOfWeek.setHours(0, 0, 0, 0);
   const weekSessions = sessions.filter((s) => new Date(s.created_at) >= startOfWeek).length;
 
-  // 레벨 (5회당 1레벨)
   const level = Math.floor(sessions.length / 5) + 1;
-  const levelProgress = sessions.length % 5; // 현재 레벨 내 진행 횟수
+  const levelProgress = sessions.length % 5;
 
-  // 연속 streak 계산
   const sortedDates = [...uniqueDates]
-    .map((s) => {
-      const [y, m, d] = s.split("-").map(Number);
-      return new Date(y, m - 1, d);
-    })
+    .map((s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); })
     .sort((a, b) => b - a);
 
   let streak = 0;
@@ -77,17 +87,8 @@ async function getDashboardData(supabase, userId) {
     }
   }
 
-  return {
-    totalDays,
-    streak,
-    weekSessions,
-    level,
-    levelProgress,
-    recentSessions: sessions.slice(0, 3),
-  };
+  return { totalDays, streak, weekSessions, level, levelProgress, recentSessions: sessions.slice(0, 3) };
 }
-
-// ─── 로드맵 fetching ──────────────────────────────────────────────────────────
 
 async function getRoadmaps(supabase, userId) {
   if (!userId) return [];
@@ -100,23 +101,21 @@ async function getRoadmaps(supabase, userId) {
   return data ?? [];
 }
 
-// ─── 미완료 세션 fetching (이어하기) ──────────────────────────────────────────
-
-async function getIncompleteSessions(supabase, userId) {
-  let query = supabase
+// 로드맵별 최근 세션 상태 (roadmap_id 기준 최신 1건)
+async function getRoadmapStatuses(supabase, userId) {
+  if (!userId) return {};
+  const { data } = await supabase
     .from("sessions")
-    .select("id, title, category_id, score, created_at, roadmap_id, categories(name)")
-    .eq("is_complete", false)
-    .eq("mode", "chat")
-    .or("summary.is.null,summary.eq.")
-    .not("roadmap_id", "is", null)  // roadmap_id 없는 구 세션 제외
-    .order("created_at", { ascending: false })
-    .limit(3);
+    .select("roadmap_id, is_complete, created_at")
+    .eq("user_id", userId)
+    .not("roadmap_id", "is", null)
+    .order("created_at", { ascending: false });
 
-  if (userId) query = query.eq("user_id", userId);
-
-  const { data } = await query;
-  return data ?? [];
+  const map = {};
+  data?.forEach((s) => {
+    if (!map[s.roadmap_id]) map[s.roadmap_id] = s;
+  });
+  return map;
 }
 
 // ─── 난이도 배지 색상 ─────────────────────────────────────────────────────────
@@ -127,6 +126,14 @@ const DIFFICULTY_STYLE = {
   중급: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
   고급: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 };
+
+const STATUS_STYLE = {
+  new:     "bg-muted text-muted-foreground",
+  ongoing: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+  done:    "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+};
+
+const STATUS_ICON = { new: "⚪", ongoing: "🟡", done: "✅" };
 
 // ─── 통계 카드 정의 ────────────────────────────────────────────────────────────
 
@@ -146,7 +153,6 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser();
   const userId = user?.id ?? null;
 
-  // 온보딩 미완료 유저 리다이렉트
   if (userId) {
     const { data: profile } = await supabase
       .from("profiles")
@@ -161,15 +167,14 @@ export default async function DashboardPage() {
   const [
     { totalDays, streak, weekSessions, level, levelProgress, recentSessions },
     roadmaps,
-    incompleteSessions,
+    roadmapStatuses,
   ] = await Promise.all([
     getDashboardData(supabase, userId),
     getRoadmaps(supabase, userId),
-    getIncompleteSessions(supabase, userId),
+    getRoadmapStatuses(supabase, userId),
   ]);
 
   const stats = statCards({ totalDays, streak, weekSessions, level });
-
 
   return (
     <div className="px-4 sm:px-8 pt-4 sm:pt-8 pb-8 max-w-5xl mx-auto space-y-10">
@@ -179,9 +184,6 @@ export default async function DashboardPage() {
         <h1 className="text-2xl font-bold">안녕하세요! 👋</h1>
         <p className="text-muted-foreground mt-1">오늘도 꾸준히 성장해볼까요?</p>
       </div>
-
-      {/* 이어하기 카드 (미완료 세션 있을 때만) */}
-      <IncompleteSessions initialSessions={incompleteSessions} />
 
       {/* 통계 카드 4개 */}
       <section>
@@ -244,36 +246,49 @@ export default async function DashboardPage() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {roadmaps.map((rm) => (
-              <Link key={rm.id} href={`/study/chat?roadmap_id=${rm.id}`}>
-                <Card className="h-full cursor-pointer hover:ring-primary/40 hover:ring-2 transition-all">
-                  <CardHeader className="pb-3">
-                    {rm.categories?.icon && (
-                      <span className="text-2xl mb-1">{rm.categories.icon}</span>
-                    )}
-                    <CardTitle className="text-base leading-snug">{rm.topic}</CardTitle>
-                    {rm.categories?.name && (
-                      <CardDescription>{rm.categories.name}</CardDescription>
-                    )}
-                  </CardHeader>
-                  <CardContent className="pt-0 flex items-center gap-2 flex-wrap">
-                    {rm.difficulty && (
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${DIFFICULTY_STYLE[rm.difficulty] ?? "bg-muted text-muted-foreground"}`}>
-                        {rm.difficulty}
-                      </span>
-                    )}
-                    {rm.duration && (
-                      <span className="text-xs text-muted-foreground">{rm.duration}</span>
-                    )}
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+            {roadmaps.map((rm) => {
+              const { status, label, time } = getRoadmapStatus(roadmapStatuses, rm.id);
+              return (
+                <Link key={rm.id} href={`/study/chat?roadmap_id=${rm.id}`}>
+                  <Card className="h-full cursor-pointer hover:ring-primary/40 hover:ring-2 transition-all">
+                    <CardHeader className="pb-3">
+                      {rm.categories?.icon && (
+                        <span className="text-2xl mb-1">{rm.categories.icon}</span>
+                      )}
+                      <CardTitle className="text-base leading-snug">{rm.topic}</CardTitle>
+                      {rm.categories?.name && (
+                        <CardDescription>{rm.categories.name}</CardDescription>
+                      )}
+                    </CardHeader>
+                    <CardContent className="pt-0 space-y-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {rm.difficulty && (
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${DIFFICULTY_STYLE[rm.difficulty] ?? "bg-muted text-muted-foreground"}`}>
+                            {rm.difficulty}
+                          </span>
+                        )}
+                        {rm.duration && (
+                          <span className="text-xs text-muted-foreground">{rm.duration}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between pt-1 border-t border-border">
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_STYLE[status]}`}>
+                          {STATUS_ICON[status]} {label}
+                        </span>
+                        {time && (
+                          <span className="text-xs text-muted-foreground">{getElapsedLabel(time)}</span>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
         )}
       </section>
 
-      {/* 최근 학습 기록 3개 */}
+      {/* 최근 학습 기록 3개 (완료된 것만) */}
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
@@ -290,9 +305,9 @@ export default async function DashboardPage() {
         {recentSessions.length === 0 ? (
           <Card>
             <CardContent className="py-10 text-center text-muted-foreground text-sm">
-              아직 학습 기록이 없습니다.{" "}
+              아직 완료한 학습이 없습니다.{" "}
               <Link href="/study" className="underline underline-offset-2 hover:text-foreground">
-                첫 학습을 시작해보세요!
+                첫 학습을 완료해보세요!
               </Link>
             </CardContent>
           </Card>
@@ -303,7 +318,7 @@ export default async function DashboardPage() {
                 <Card size="sm" className="hover:ring-primary/30 hover:ring-2 transition-all cursor-pointer">
                   <CardContent className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-sm">{session.title ?? "학습 세션"}</p>
+                      <p className="font-medium text-sm">{session.roadmaps?.topic ?? session.title ?? "학습 세션"}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">{session.categories?.name ?? "—"}</p>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">

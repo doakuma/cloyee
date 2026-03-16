@@ -18,6 +18,17 @@ import {
 import { Button } from "@/components/ui/button";
 import { PlayCircle, ChevronRight, X } from "lucide-react";
 
+function getElapsedLabel(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const minutes = Math.floor(diff / (1000 * 60));
+  if (days > 0) return `${days}일 전`;
+  if (hours > 0) return `${hours}시간 전`;
+  if (minutes > 0) return `${minutes}분 전`;
+  return "방금 전";
+}
+
 export default function IncompleteSessions({ initialSessions }) {
   const [sessions, setSessions] = useState(initialSessions);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
@@ -54,16 +65,14 @@ export default function IncompleteSessions({ initialSessions }) {
                     <PlayCircle size={18} className="text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{session.title ?? "학습 세션"}</p>
+                    <p className="font-medium text-sm truncate">{session.roadmaps?.topic ?? session.title ?? "학습 세션"}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {session.categories?.name ?? "—"} · {new Date(session.created_at).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })} 중단
+                      {session.categories?.name ?? "—"}
                     </p>
                   </div>
-                  <div className="shrink-0 flex items-center gap-2">
-                    {session.score != null && (
-                      <span className="text-xs font-semibold text-primary">{session.score}점</span>
-                    )}
-                    <ChevronRight size={14} className="text-muted-foreground" />
+                  <div className="shrink-0 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <span>{getElapsedLabel(session.created_at)}</span>
+                    <ChevronRight size={14} />
                   </div>
                 </CardContent>
               </Card>

@@ -130,7 +130,7 @@ function SessionCard({ session, onDelete, onRename }) {
             </form>
           ) : (
             <>
-              <p className="font-medium text-sm truncate">{session.title ?? "학습 세션"}</p>
+              <p className="font-medium text-sm truncate">{session.roadmaps?.topic ?? session.title ?? "학습 세션"}</p>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-xs text-muted-foreground">{categoryName}</span>
                 <span className="text-xs text-muted-foreground">·</span>
@@ -167,10 +167,12 @@ function SessionCard({ session, onDelete, onRename }) {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          {session.score != null && (
+          {session.is_complete && session.score > 0 ? (
             <span className={`text-xs font-semibold border rounded-md px-1.5 py-0.5 ${scoreBg(session.score)}`}>
               {session.score}점
             </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">진행 중</span>
           )}
         </div>
       </CardContent>
@@ -232,7 +234,8 @@ export default function HistoryPage() {
 
       let query = supabase
         .from("sessions")
-        .select("id, title, category_id, mode, score, created_at, categories(name)")
+        .select("id, title, category_id, mode, score, is_complete, created_at, categories(name), roadmaps(topic)")
+        .eq("is_complete", true)
         .order("created_at", { ascending: false });
 
       if (userId) query = query.eq("user_id", userId);
