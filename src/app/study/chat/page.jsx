@@ -365,7 +365,9 @@ function ChatView() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          category, title, messages: history, message: userMessage,
+          category, title,
+          messages: history.map(({ role, content }) => ({ role, content })),
+          message: userMessage,
           userProfile, roadmap: roadmapToSend, chatMode: chatModeToSend,
         }),
       });
