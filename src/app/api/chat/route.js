@@ -38,12 +38,17 @@ ${roadmapContext}
 2. 메시지 작성 후 반드시 아래 구분자를 그대로 출력합니다:
 <<<CLOYEE_META>>>
 3. 구분자 바로 다음 줄에 아래 JSON을 한 줄로 출력합니다 (코드블록 없이):
-{"score":점수,"feedback":"피드백","is_complete":true또는false,"summary":"요약"}
+{"score":점수,"feedback":"피드백","is_complete":true또는false,"summary":"요약","answer":정답인덱스또는-1}
 
 ## is_complete 판단 기준
 - 핵심 개념을 학습자가 자신의 언어로 설명할 수 있을 때
 - 주요 예시에 대해 올바른 답변을 3회 이상 연속으로 할 때
 - score가 80점 이상이고 학습 흐름이 자연스럽게 마무리될 때
+
+## answer 필드
+${chatMode === "choice"
+  ? "선택형 문제를 제시할 때 정답의 0-based 인덱스를 answer에 넣으세요 (0=A, 1=B, 2=C, 3=D). 문제가 없으면 -1."
+  : "선택지를 제시하지 않을 때는 answer를 -1로 설정하세요."}
 
 ## 객관식 선택지
 ${chatMode === "choice"
@@ -124,7 +129,7 @@ export async function POST(request) {
         }
 
         // 스트림 완료 — 남은 버퍼 처리
-        let meta = { score: 0, feedback: "", is_complete: false, summary: "" };
+        let meta = { score: 0, feedback: "", is_complete: false, summary: "", answer: -1 };
 
         if (!metaFound) {
           // 구분자 없음 — 전체를 텍스트로 처리 (fallback)
@@ -144,6 +149,7 @@ export async function POST(request) {
                 feedback: parsed.feedback ?? "",
                 is_complete: parsed.is_complete ?? false,
                 summary: parsed.summary ?? "",
+                answer: parsed.answer ?? -1,
               };
             } catch (e) {
               isDev && console.error("[chat] META JSON 파싱 실패:", e.message, "| raw:", metaStr.slice(0, 200));

@@ -35,7 +35,7 @@ function FlowButtons({ buttons, onSelect, disabled }) {
 
 // ─── 메시지 버블 ───────────────────────────────────────────────────────────────
 
-function CloyeeMessage({ content, feedback, choices, onSelect, flowButtons, onFlowButton, flowDisabled }) {
+function CloyeeMessage({ content, feedback, choices, choiceAnswer, onSelect, flowButtons, onFlowButton, flowDisabled }) {
   return (
     <div className="flex flex-col gap-1 max-w-[75%]">
       <span className="text-xs text-muted-foreground font-medium px-1">Cloyee</span>
@@ -43,7 +43,7 @@ function CloyeeMessage({ content, feedback, choices, onSelect, flowButtons, onFl
         <CardContent className="py-3 px-4 text-sm leading-relaxed">
           <MarkdownMessage content={content} />
           {choices?.length > 0 && (
-            <ChoiceButtons choices={choices} onSelect={onSelect} />
+            <ChoiceButtons choices={choices} onSelect={onSelect} answer={choiceAnswer} />
           )}
           {flowButtons?.length > 0 && (
             <FlowButtons buttons={flowButtons} onSelect={onFlowButton} disabled={flowDisabled} />
@@ -170,7 +170,9 @@ function ChatView() {
     if (flowStep !== "learning") return;
     const msgsToSave = messages.filter((m) => !m.isFlow);
     if (msgsToSave.length === 0) return;
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ category, title, messages: msgsToSave, chatMode }));
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+      category, title, messages: msgsToSave, chatMode,
+    }));
   }, [messages, category, title, chatMode, flowStep]);
 
   // 진입 초기화
@@ -317,6 +319,7 @@ function ChatView() {
       const mode = btn.value;
       setChatMode(mode);
       setFlowStep("learning");
+
       const startMsg = mode === "choice"
         ? "선택형 방식으로 학습을 시작해주세요. 4지선다 문제로 진행해주세요."
         : "대화형 방식으로 학습을 시작해주세요.";
@@ -445,31 +448,16 @@ function ChatView() {
           score: meta?.score ?? null,
           feedback: meta?.feedback ?? null,
           isDone: true,
+          answer: meta?.answer ?? -1,
         };
         return next;
       });
 
       if (meta?.is_complete) {
-        setIsComplete(true);
-        const learningHistory = history.filter((m) => !m.isFlow);
-        // 평균 이해도 계산 (이전 메시지들 score + 현재 score)
-        const prevScores = learningHistory.filter((m) => m.role === "assistant" && m.score > 0).map((m) => m.score);
-        const allScores = meta.score > 0 ? [...prevScores, meta.score] : prevScores;
-        const avgScore = allScores.length > 0
-          ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length)
-          : meta.score ?? 0;
-        setFinalScore(avgScore);
-        const allMessages = [
-          ...learningHistory,
-          { role: "user", content: userMessage },
-          { role: "assistant", content: accumulated },
-        ];
-        const saved = await saveSession(meta.summary, avgScore, allMessages);
-        if (saved) {
-          sessionStorage.removeItem(SESSION_KEY);
-          setTimeout(() => router.push("/history"), 2000);
-        } else {
-          setSaveError("학습 기록 저장에 실패했습니다. 잠시 후 다시 시도해주세요.");
+        // 응답에 선택지가 포함되어 있으면 아직 질문 중 — is_complete 무시
+        const { choices: pendingChoices } = parseChoices(accumulated);
+        if (pendingChoices.length === 0) {
+          await handleComplete();
         }
       }
     } catch (err) {
@@ -486,6 +474,29 @@ function ChatView() {
     } finally {
       setLoading(false);
       setStreaming(false);
+    }
+
+    async function handleComplete() {
+      setIsComplete(true);
+      const learningHistory = history.filter((m) => !m.isFlow);
+      const prevScores = learningHistory.filter((m) => m.role === "assistant" && m.score > 0).map((m) => m.score);
+      const allScores = meta.score > 0 ? [...prevScores, meta.score] : prevScores;
+      const avgScore = allScores.length > 0
+        ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length)
+        : meta.score ?? 0;
+      setFinalScore(avgScore);
+      const allMessages = [
+        ...learningHistory,
+        { role: "user", content: userMessage },
+        { role: "assistant", content: accumulated },
+      ];
+      const saved = await saveSession(meta.summary, avgScore, allMessages);
+      if (saved) {
+        sessionStorage.removeItem(SESSION_KEY);
+        setTimeout(() => router.push("/history"), 2000);
+      } else {
+        setSaveError("학습 기록 저장에 실패했습니다. 잠시 후 다시 시도해주세요.");
+      }
     }
   }
 
@@ -626,7 +637,6 @@ function ChatView() {
   // ── 렌더 ────────────────────────────────────────────────────────────────────
 
   const learningMessages = messages.filter((m) => !m.isFlow);
-  // 첫 AI 오프닝 메시지 제외, 사용자가 답한 수만큼
   const progress = Math.max(0, learningMessages.filter((m) => m.role === "assistant" && m.isDone).length - 1);
   const canPause = flowStep === "learning" && !loading && !streaming && !isComplete && !pausing && learningMessages.length > 0;
 
@@ -691,6 +701,7 @@ function ChatView() {
               content={cleanText}
               feedback={msg.feedback}
               choices={showChoices ? choices : []}
+              choiceAnswer={showChoices ? (msg.answer ?? -1) : -1}
               onSelect={handleChoiceSelect}
               flowButtons={showFlowButtons ? msg.flowButtons : null}
               onFlowButton={handleFlowButton}
