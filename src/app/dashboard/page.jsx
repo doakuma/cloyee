@@ -15,6 +15,8 @@ import {
   Trophy,
   ChevronRight,
   Plus,
+  MessageSquare,
+  Code2,
 } from "lucide-react";
 
 // ─── 유틸 ─────────────────────────────────────────────────────────────────────
@@ -40,13 +42,14 @@ function getRoadmapStatus(statuses, roadmapId) {
 // ─── 데이터 fetching ──────────────────────────────────────────────────────────
 
 async function getDashboardData(supabase, userId) {
+  if (!userId) return { totalDays: 0, streak: 0, weekSessions: 0, level: 1, levelProgress: 0, recentSessions: [] };
+
   let query = supabase
     .from("sessions")
     .select("id, title, category_id, created_at, categories(name), roadmaps(topic)")
     .eq("is_complete", true)
+    .eq("user_id", userId)
     .order("created_at", { ascending: false });
-
-  if (userId) query = query.eq("user_id", userId);
 
   const { data: sessions } = await query;
 
@@ -174,6 +177,11 @@ export default async function DashboardPage() {
     getRoadmapStatuses(supabase, userId),
   ]);
 
+  // 완료된 로드맵 제외 (학습 시작하기 영역은 미완료만 표시)
+  const activeRoadmaps = roadmaps.filter(
+    (rm) => getRoadmapStatus(roadmapStatuses, rm.id).status !== "done"
+  );
+
   const stats = statCards({ totalDays, streak, weekSessions, level });
 
   return (
@@ -235,18 +243,25 @@ export default async function DashboardPage() {
           </Link>
         </div>
 
-        {roadmaps.length === 0 ? (
+        {activeRoadmaps.length === 0 ? (
           <Card>
             <CardContent className="py-10 text-center text-muted-foreground text-sm">
-              아직 학습 로드맵이 없어요.{" "}
-              <Link href="/study/new" className="underline underline-offset-2 hover:text-foreground">
-                학습을 추가해보세요!
-              </Link>
+              {roadmaps.length === 0 ? (
+                <>아직 학습 로드맵이 없어요.{" "}
+                <Link href="/study/new" className="underline underline-offset-2 hover:text-foreground">
+                  학습을 추가해보세요!
+                </Link></>
+              ) : (
+                <>모든 로드맵을 완료했어요! 🎉{" "}
+                <Link href="/history" className="underline underline-offset-2 hover:text-foreground">
+                  기록 보기
+                </Link></>
+              )}
             </CardContent>
           </Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {roadmaps.map((rm) => {
+            {activeRoadmaps.map((rm) => {
               const { status, label, time } = getRoadmapStatus(roadmapStatuses, rm.id);
               return (
                 <Link key={rm.id} href={`/study/chat?roadmap_id=${rm.id}`}>
@@ -313,27 +328,49 @@ export default async function DashboardPage() {
           </Card>
         ) : (
           <div className="space-y-2">
-            {recentSessions.map((session) => (
-              <Link key={session.id} href={`/history/${session.id}`}>
-                <Card size="sm" className="hover:ring-primary/30 hover:ring-2 transition-all cursor-pointer">
-                  <CardContent className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-sm">{session.roadmaps?.topic ?? session.title ?? "학습 세션"}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{session.categories?.name ?? "—"}</p>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>
-                        {new Date(session.created_at).toLocaleDateString("ko-KR", {
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </span>
-                      <ChevronRight size={14} />
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+            {recentSessions.map((session) => {
+              const isReview = session.mode === "review";
+              return (
+                <Link key={session.id} href={`/history/${session.id}`}>
+                  <Card size="sm" className="hover:ring-primary/30 hover:ring-2 transition-all cursor-pointer">
+                    <CardContent className="flex items-center gap-3">
+                      {/* 모드 아이콘 */}
+                      <div className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center ${isReview ? "bg-violet-100" : "bg-sky-100"}`}>
+                        {isReview
+                          ? <Code2 size={14} className="text-violet-600" />
+                          : <MessageSquare size={14} className="text-sky-600" />
+                        }
+                      </div>
+                      {/* 내용 */}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{session.roadmaps?.topic ?? session.title ?? "학습 세션"}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{session.categories?.name ?? "—"}</p>
+                      </div>
+                      {/* 오른쪽: 배지 + 날짜 */}
+                      <div className="shrink-0 flex flex-col items-end gap-1">
+                        <div className="flex items-center gap-1">
+                          <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full border ${isReview ? "bg-violet-50 text-violet-700 border-violet-200" : "bg-sky-50 text-sky-700 border-sky-200"}`}>
+                            {isReview ? "리뷰" : "대화"}
+                          </span>
+                          <span className="text-xs font-medium px-1.5 py-0.5 rounded-full border bg-green-50 text-green-700 border-green-200">
+                            ✅ 완료
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <span>
+                            {new Date(session.created_at).toLocaleDateString("ko-KR", {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </span>
+                          <ChevronRight size={13} />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
         )}
       </section>

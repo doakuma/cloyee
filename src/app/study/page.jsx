@@ -1,42 +1,63 @@
-import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus } from "lucide-react";
 import RoadmapCard from "@/components/study/RoadmapCard";
 import ArchivedSection from "@/components/study/ArchivedSection";
+import AddRoadmapButton from "@/components/study/AddRoadmapButton";
 
 // ─── 데이터 fetching ──────────────────────────────────────────────────────────
 
-async function getRoadmapsByStatus(status) {
-  let roadmaps = [];
+async function getStudyData() {
   try {
     const supabase = await createSupabaseServerClient();
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { active: [], archived: [] };
 
-    if (!user) return [];
+    const [{ data: activeData }, { data: archivedData }, { data: sessionData }] = await Promise.all([
+      supabase
+        .from("roadmaps")
+        .select("id, topic, difficulty, duration, category_id, categories(name, icon)")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("roadmaps")
+        .select("id, topic, difficulty, duration, category_id, categories(name, icon)")
+        .eq("user_id", user.id)
+        .eq("status", "paused")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("sessions")
+        .select("roadmap_id, is_complete")
+        .eq("user_id", user.id)
+        .not("roadmap_id", "is", null)
+        .order("created_at", { ascending: false }),
+    ]);
 
-    const { data, error } = await supabase
-      .from("roadmaps")
-      .select("id, topic, difficulty, duration, category_id, categories(name, icon)")
-      .eq("user_id", user.id)
-      .eq("status", status)
-      .order("created_at", { ascending: false });
+    // roadmap별 최신 세션의 is_complete 맵 생성
+    const completedRoadmapIds = new Set();
+    const seen = new Set();
+    for (const s of sessionData ?? []) {
+      if (!seen.has(s.roadmap_id)) {
+        seen.add(s.roadmap_id);
+        if (s.is_complete) completedRoadmapIds.add(s.roadmap_id);
+      }
+    }
 
-    if (error) throw error;
-    roadmaps = data ?? [];
+    // 완료된 로드맵은 active에서 제외
+    const active = (activeData ?? []).filter((rm) => !completedRoadmapIds.has(rm.id));
+    const archived = archivedData ?? [];
+
+    return { active, archived };
   } catch (e) {
-    console.error(`[study] roadmaps(${status}) 조회 실패:`, e.message);
+    console.error("[study] 데이터 조회 실패:", e.message);
+    return { active: [], archived: [] };
   }
-  return roadmaps;
 }
 
 // ─── 페이지 ───────────────────────────────────────────────────────────────────
 
 export default async function StudyPage() {
-  const [active, archived] = await Promise.all([
-    getRoadmapsByStatus("active"),
-    getRoadmapsByStatus("paused"),
-  ]);
+  const { active, archived } = await getStudyData();
 
   return (
     <div className="px-4 sm:px-8 pt-4 sm:pt-8 pb-8 max-w-5xl mx-auto space-y-10">
@@ -47,25 +68,15 @@ export default async function StudyPage() {
           <h1 className="text-2xl font-bold">내 학습 로드맵</h1>
           <p className="text-muted-foreground text-sm mt-1">학습할 주제를 선택하세요</p>
         </div>
-        <Link
-          href="/study/new"
-          className="shrink-0 whitespace-nowrap flex items-center gap-1.5 text-sm font-medium bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:opacity-90 transition-opacity"
-        >
-          <Plus size={15} /> 새 로드맵 추가
-        </Link>
+        <AddRoadmapButton label="새 로드맵 추가" variant="primary" />
       </div>
 
-      {/* 메인 — active */}
+      {/* 메인 — active (완료된 로드맵 제외) */}
       {active.length === 0 ? (
         <Card>
           <CardContent className="py-16 flex flex-col items-center gap-4 text-center">
-            <p className="text-muted-foreground text-sm">아직 학습 로드맵이 없어요.</p>
-            <Link
-              href="/study/new"
-              className="flex items-center gap-1.5 text-sm font-medium bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:opacity-90 transition-opacity"
-            >
-              <Plus size={15} /> 첫 로드맵 만들기
-            </Link>
+            <p className="text-muted-foreground text-sm">진행 중인 로드맵이 없어요.</p>
+            <AddRoadmapButton label="새 로드맵 만들기" />
           </CardContent>
         </Card>
       ) : (

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
-import { Plus, X, Star, Loader2 } from "lucide-react";
+import { Plus, X, Star, Loader2, ChevronDown } from "lucide-react";
 
 const DURATIONS = ["1주", "2주", "1개월", "3개월", "직접입력"];
 const DIFFICULTIES = ["입문", "초급", "중급", "고급"];
@@ -26,6 +26,9 @@ export default function NewRoadmapPage() {
 
   // 카테고리 목록
   const [categories, setCategories] = useState([]);
+
+  // 선택 설정 펼침 상태
+  const [showOptional, setShowOptional] = useState(false);
 
   // 저장 상태
   const [saving, setSaving] = useState(false);
@@ -148,145 +151,160 @@ export default function NewRoadmapPage() {
           </div>
         </div>
 
-        {/* 관심도 */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">관심도</label>
-          <div className="flex gap-1">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => setInterestLevel(n === interestLevel ? 0 : n)}
-                className="p-1 transition-colors"
-              >
-                <Star
-                  size={24}
-                  className={n <= interestLevel ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/40"}
-                />
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* 선택 설정 — 토글 */}
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowOptional((v) => !v)}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors pt-2"
+          >
+            <ChevronDown size={15} className={`transition-transform ${showOptional ? "rotate-180" : ""}`} />
+            더 설정하기 (선택)
+          </button>
+          {showOptional && <div className="space-y-6 pt-4">
 
-        {/* 현재/목표 지식 수준 */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">현재 지식 수준</label>
-            <input
-              type="text"
-              value={currentLevel}
-              onChange={(e) => setCurrentLevel(e.target.value)}
-              placeholder="예: useState만 알아요"
-              className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/40 transition"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">목표 지식 수준</label>
-            <input
-              type="text"
-              value={targetLevel}
-              onChange={(e) => setTargetLevel(e.target.value)}
-              placeholder="예: 상태 최적화까지"
-              className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/40 transition"
-            />
-          </div>
-        </div>
-
-        {/* 참고 문서/사이트 */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">참고 문서 / 사이트</label>
-          <div className="space-y-2">
-            {referenceUrls.map((url, i) => (
-              <div key={i} className="flex gap-2">
-                <input
-                  type="url"
-                  value={url}
-                  onChange={(e) => updateUrl(i, e.target.value)}
-                  placeholder="https://..."
-                  className="flex-1 rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/40 transition"
-                />
-                {referenceUrls.length > 1 && (
+            {/* 관심도 */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">관심도</label>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((n) => (
                   <button
+                    key={n}
                     type="button"
-                    onClick={() => removeUrl(i)}
-                    className="p-3 rounded-xl border border-border hover:bg-muted transition-colors text-muted-foreground"
+                    onClick={() => setInterestLevel(n === interestLevel ? 0 : n)}
+                    className="p-1 transition-colors"
                   >
-                    <X size={14} />
+                    <Star
+                      size={24}
+                      className={n <= interestLevel ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/40"}
+                    />
                   </button>
-                )}
+                ))}
               </div>
-            ))}
-            <button
-              type="button"
-              onClick={addUrl}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Plus size={14} /> URL 추가
-            </button>
-          </div>
-        </div>
+            </div>
 
-        {/* 학습 기간 */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">학습 기간</label>
-          <div className="flex flex-wrap gap-2">
-            {DURATIONS.map((d) => (
-              <button
-                key={d}
-                type="button"
-                onClick={() => setDuration(d)}
-                className={`rounded-xl border-2 py-2 px-4 text-sm font-medium transition-all ${
-                  duration === d
-                    ? "border-primary bg-primary/5 text-primary"
-                    : "border-border hover:border-primary/40 text-muted-foreground"
-                }`}
-              >
-                {d}
-              </button>
-            ))}
-          </div>
-          {duration === "직접입력" && (
-            <input
-              type="text"
-              value={customDuration}
-              onChange={(e) => setCustomDuration(e.target.value)}
-              placeholder="예: 6주, 45일"
-              className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/40 transition mt-2"
-            />
-          )}
-        </div>
+            {/* 현재/목표 지식 수준 */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">현재 지식 수준</label>
+                <input
+                  type="text"
+                  value={currentLevel}
+                  onChange={(e) => setCurrentLevel(e.target.value)}
+                  placeholder="예: useState만 알아요"
+                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/40 transition"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">목표 지식 수준</label>
+                <input
+                  type="text"
+                  value={targetLevel}
+                  onChange={(e) => setTargetLevel(e.target.value)}
+                  placeholder="예: 상태 최적화까지"
+                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/40 transition"
+                />
+              </div>
+            </div>
 
-        {/* 학습 난이도 */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">학습 난이도</label>
-          <div className="flex flex-wrap gap-2">
-            {DIFFICULTIES.map((d) => (
-              <button
-                key={d}
-                type="button"
-                onClick={() => setDifficulty(d)}
-                className={`rounded-xl border-2 py-2 px-4 text-sm font-medium transition-all ${
-                  difficulty === d
-                    ? "border-primary bg-primary/5 text-primary"
-                    : "border-border hover:border-primary/40 text-muted-foreground"
-                }`}
-              >
-                {d}
-              </button>
-            ))}
-          </div>
-        </div>
+            {/* 참고 문서/사이트 */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">참고 문서 / 사이트</label>
+              <div className="space-y-2">
+                {referenceUrls.map((url, i) => (
+                  <div key={i} className="flex gap-2">
+                    <input
+                      type="url"
+                      value={url}
+                      onChange={(e) => updateUrl(i, e.target.value)}
+                      placeholder="https://..."
+                      className="flex-1 rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/40 transition"
+                    />
+                    {referenceUrls.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeUrl(i)}
+                        className="p-3 rounded-xl border border-border hover:bg-muted transition-colors text-muted-foreground"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addUrl}
+                  className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Plus size={14} /> URL 추가
+                </button>
+              </div>
+            </div>
 
-        {/* 기타 */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">기타 메모</label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="추가로 AI에게 전달하고 싶은 내용을 자유롭게 적어주세요"
-            rows={3}
-            className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/40 transition resize-none"
-          />
+            {/* 학습 기간 */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">학습 기간</label>
+              <div className="flex flex-wrap gap-2">
+                {DURATIONS.map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setDuration(d)}
+                    className={`rounded-xl border-2 py-2 px-4 text-sm font-medium transition-all ${
+                      duration === d
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-border hover:border-primary/40 text-muted-foreground"
+                    }`}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+              {duration === "직접입력" && (
+                <input
+                  type="text"
+                  value={customDuration}
+                  onChange={(e) => setCustomDuration(e.target.value)}
+                  placeholder="예: 6주, 45일"
+                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/40 transition mt-2"
+                />
+              )}
+            </div>
+
+            {/* 학습 난이도 */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">학습 난이도</label>
+              <div className="flex flex-wrap gap-2">
+                {DIFFICULTIES.map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setDifficulty(d)}
+                    className={`rounded-xl border-2 py-2 px-4 text-sm font-medium transition-all ${
+                      difficulty === d
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-border hover:border-primary/40 text-muted-foreground"
+                    }`}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 기타 */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">기타 메모</label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="추가로 AI에게 전달하고 싶은 내용을 자유롭게 적어주세요"
+                rows={3}
+                className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/40 transition resize-none"
+              />
+            </div>
+
+          </div>}
         </div>
 
         {saveError && (

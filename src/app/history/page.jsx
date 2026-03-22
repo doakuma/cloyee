@@ -167,29 +167,11 @@ function SessionCard({ session, onDelete, onRename }) {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          {session.is_complete ? (
-            session.score > 0 ? (
-              <span className={`text-xs font-semibold border rounded-md px-1.5 py-0.5 ${scoreBg(session.score)}`}>
-                {session.score}점
-              </span>
-            ) : null
-          ) : (
-            <div className="flex flex-col items-end gap-1">
-              <span className="text-xs font-medium text-yellow-600 bg-yellow-50 border border-yellow-200 rounded-md px-1.5 py-0.5">
-                🟡 학습 중
-              </span>
-              <Link
-                href={session.roadmap_id
-                  ? `/study/chat?roadmap_id=${session.roadmap_id}`
-                  : `/study/chat?category=${encodeURIComponent(session.categories?.name ?? "일반")}`
-                }
-                className="text-xs text-primary underline underline-offset-2 hover:opacity-70"
-                onClick={(e) => e.stopPropagation()}
-              >
-                이어서 학습하기
-              </Link>
-            </div>
-          )}
+          {session.score > 0 ? (
+            <span className={`text-xs font-semibold border rounded-md px-1.5 py-0.5 ${scoreBg(session.score)}`}>
+              {session.score}점
+            </span>
+          ) : null}
         </div>
       </CardContent>
     </Card>
@@ -222,7 +204,6 @@ function EmptyState({ filtered }) {
 export default function HistoryPage() {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tabFilter, setTabFilter] = useState("complete");   // "complete" | "ongoing"
   const [dateFilter, setDateFilter] = useState("all");      // "week" | "month" | "all"
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [deleteTargetId, setDeleteTargetId] = useState(null);
@@ -249,14 +230,18 @@ export default function HistoryPage() {
       const { data: { user } } = await supabase.auth.getUser();
       const userId = user?.id ?? null;
 
-      let query = supabase
+      if (!userId) {
+        setSessions([]);
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
         .from("sessions")
         .select("id, title, category_id, roadmap_id, mode, score, is_complete, created_at, categories(name), roadmaps(topic)")
+        .eq("is_complete", true)
+        .eq("user_id", userId)
         .order("created_at", { ascending: false });
-
-      if (userId) query = query.eq("user_id", userId);
-
-      const { data, error } = await query;
 
       if (cancelled) return;
       if (!error && data) setSessions(data);
@@ -281,17 +266,15 @@ export default function HistoryPage() {
     return [...seen.entries()].map(([id, name]) => ({ id, name }));
   }, [sessions]);
 
-  // 필터링
+  // 필터링 (완료 세션만 — is_complete=true 쿼리로 고정)
   const filtered = useMemo(() => {
     const since = getDateRange(dateFilter);
     return sessions.filter((s) => {
-      if (tabFilter === "complete" && !s.is_complete) return false;
-      if (tabFilter === "ongoing" && s.is_complete) return false;
       if (since && new Date(s.created_at) < since) return false;
       if (categoryFilter !== "all" && s.category_id !== categoryFilter) return false;
       return true;
     });
-  }, [sessions, dateFilter, categoryFilter, tabFilter]);
+  }, [sessions, dateFilter, categoryFilter]);
 
   const isFiltered = dateFilter !== "all" || categoryFilter !== "all";
 
@@ -323,12 +306,6 @@ export default function HistoryPage() {
             </FilterButton>
           ))}
         </div>
-      </div>
-
-      {/* 완료/학습 중 탭 */}
-      <div className="flex items-center gap-1 bg-muted/60 rounded-xl p-1 w-fit mb-5">
-        <FilterButton active={tabFilter === "complete"} onClick={() => setTabFilter("complete")}>완료</FilterButton>
-        <FilterButton active={tabFilter === "ongoing"} onClick={() => setTabFilter("ongoing")}>학습 중</FilterButton>
       </div>
 
       {/* 카테고리 필터 */}
