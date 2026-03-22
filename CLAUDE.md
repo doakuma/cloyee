@@ -167,10 +167,8 @@ ALTER TABLE reviews ADD COLUMN user_id UUID REFERENCES auth.users(id) ON DELETE 
 | 게스트 데이터 노출            | user_id IS NULL 데이터는 RLS 정책상 누구나 조회 가능                |
 | 모바일 P3 미해결              | Review 탭바 overflow 가능성, iOS 관성 스크롤                        |
 | RSC prefetch 503              | Vercel cold start 간헐적 발생, 실사용 영향 없음                     |
-| 히스토리 슬라이싱             | slice(-10) 적용 완료 — chat/review route 모두 처리                  |
 | 복습 후 세션 완료 시나리오    | is_complete=true 저장 후 복습 분기 재진입 미검증                    |
 | 교안 진행률 미구현            | v0.3 스텝 분할 방식으로 해결 예정                                   |
-| ChoiceButtons /history 이동 버그 | choices && is_complete 동시 수신 시 이동 안 하도록 수정 완료      |
 
 ---
 
