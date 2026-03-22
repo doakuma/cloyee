@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agent message bus
+.agent/
+
+# MCP local config (project .mcp.json은 git에 포함)
+
