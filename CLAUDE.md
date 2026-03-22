@@ -5,8 +5,8 @@
 - **버전**: v0.2 진행 중
 - **배포 URL**: https://cloyee.vercel.app
 - **로컬**: http://localhost:3000
-- **마지막 작업**: E2E 테스트 + API messages 필드 누출 버그 수정 (2026.03.17)
-- **다음 작업**: v0.2 — 피드백 메뉴 구현 (Priority 1) + Vercel 배포
+- **마지막 작업**: UX 휴리스틱 평가 + SessionCard 리팩토링 + 중단 세션 복습 요약 (2026.03.22)
+- **다음 작업**: v0.2 — 커스텀 카테고리 UI (Priority 1)
 
 ---
 
@@ -64,6 +64,21 @@ ALTER TABLE reviews ADD COLUMN user_id UUID REFERENCES auth.users(id) ON DELETE 
 - sessions: 본인 user_id 또는 NULL (게스트) 허용
 - reviews: 본인 user_id 또는 NULL (게스트) 허용
 
+### UX 개선 + 리팩토링 (2026.03.22)
+
+- UX 휴리스틱 평가 (Nielsen 10) — 이슈 7건 발견, 5건 수정
+  - 게스트 NULL 세션 노출 차단 (dashboard, history)
+  - 게스트 /study/new 접근 차단 + 로그인 유도 모달
+  - 랜딩 CTA 게스트 링크 추가
+  - /history 탭 제거, 완료 세션만 표시
+- 히스토리 슬라이싱 — `messages.slice(-10)` 적용 (chat/review route 모두)
+- 대시보드 "최근 학습" 카드 레이아웃 개선 (flat card 스타일, neutral 뱃지)
+- `SessionCard` 공통 컴포넌트 추출 (`src/components/common/SessionCard.jsx`)
+  - `showMenu` prop으로 dashboard(읽기 전용) / history(편집+삭제) 분기
+- 중단 세션 복습 요약 — `/api/chat/summarize` 라우트 추가
+  - "오늘은 여기까지" 클릭 시 Claude가 2~3문장 요약 생성 → `sessions.summary` 저장
+  - 다음 방문 "복습하기" 클릭 시 요약 표시
+
 ### 학습 플로우 재설계 (2026.03.17)
 
 - 첫학습 / 이어서(복습 or 바로) 진입 분기 — sessions 기록 유무 자동 판단
@@ -116,6 +131,9 @@ ALTER TABLE reviews ADD COLUMN user_id UUID REFERENCES auth.users(id) ON DELETE 
 - **학습 진도율**: 문항 수 기반 (N문항 학습 중), score는 완료 시에만 평균 저장
 - **sessionStorage 키**: cloyee*chat*{roadmapId|categoryId} (로드맵별 독립)
 - **API messages 필터링**: map(({ role, content }) => ...) 로 extra 필드 제거 필수
+- **히스토리 슬라이싱**: messages.slice(-10) — 최근 10턴만 Claude API 전송 (chat/review 공통)
+- **중단 세션 요약**: pauseSession() → /api/chat/summarize 호출 → sessions.summary 저장 (실패 시 null)
+- **SessionCard**: 공통 컴포넌트 (`src/components/common/SessionCard.jsx`), showMenu prop으로 분기
 
 ---
 
@@ -149,7 +167,7 @@ ALTER TABLE reviews ADD COLUMN user_id UUID REFERENCES auth.users(id) ON DELETE 
 | 게스트 데이터 노출            | user_id IS NULL 데이터는 RLS 정책상 누구나 조회 가능                |
 | 모바일 P3 미해결              | Review 탭바 overflow 가능성, iOS 관성 스크롤                        |
 | RSC prefetch 503              | Vercel cold start 간헐적 발생, 실사용 영향 없음                     |
-| 히스토리 무제한 누적          | 대화 길어질수록 토큰 비용 선형 증가. 최근 6~10턴 슬라이싱 권장 (P2) |
+| 히스토리 슬라이싱             | slice(-10) 적용 완료 — chat/review route 모두 처리                  |
 | 복습 후 세션 완료 시나리오    | is_complete=true 저장 후 복습 분기 재진입 미검증                    |
 | 교안 진행률 미구현            | v0.3 스텝 분할 방식으로 해결 예정                                   |
 | ChoiceButtons /history 이동 버그 | choices && is_complete 동시 수신 시 이동 안 하도록 수정 완료      |
