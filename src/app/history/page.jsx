@@ -1,18 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,7 +13,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MessageSquare, Code2, CalendarDays, BookOpen, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { CalendarDays, BookOpen } from "lucide-react";
+import { SessionCard } from "@/components/common/SessionCard";
 
 // ─── 유틸 ─────────────────────────────────────────────────────────────────────
 
@@ -41,20 +32,6 @@ function getDateRange(filter) {
   return null;
 }
 
-function scoreColor(score) {
-  if (score == null) return "text-muted-foreground";
-  if (score >= 80) return "text-green-600";
-  if (score >= 60) return "text-yellow-600";
-  return "text-red-500";
-}
-
-function scoreBg(score) {
-  if (score == null) return "bg-muted text-muted-foreground";
-  if (score >= 80) return "bg-green-50 text-green-700 border-green-200";
-  if (score >= 60) return "bg-yellow-50 text-yellow-700 border-yellow-200";
-  return "bg-red-50 text-red-700 border-red-200";
-}
-
 // ─── 필터 버튼 ────────────────────────────────────────────────────────────────
 
 function FilterButton({ active, onClick, children }) {
@@ -69,112 +46,6 @@ function FilterButton({ active, onClick, children }) {
     >
       {children}
     </button>
-  );
-}
-
-// ─── 세션 카드 ────────────────────────────────────────────────────────────────
-
-function SessionCard({ session, onDelete, onRename }) {
-  const isReview = session.mode === "review";
-  const categoryName = session.categories?.name ?? session.category_id ?? "—";
-  const [editing, setEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState(session.title ?? "학습 세션");
-  const [saving, setSaving] = useState(false);
-  const inputRef = useRef(null);
-
-  async function handleRenameSubmit(e) {
-    e.preventDefault();
-    const trimmed = editTitle.trim();
-    if (!trimmed || trimmed === session.title) { setEditing(false); return; }
-    setSaving(true);
-    const { error } = await supabase
-      .from("sessions")
-      .update({ title: trimmed })
-      .eq("id", session.id);
-    setSaving(false);
-    if (!error) {
-      onRename(session.id, trimmed);
-      setEditing(false);
-    }
-  }
-
-  // 편집 모드 진입 시 input 포커스
-  useEffect(() => {
-    if (editing) inputRef.current?.focus();
-  }, [editing]);
-
-  return (
-    <Card size="sm" className="hover:ring-primary/30 hover:ring-2 transition-all">
-      <CardContent className="flex items-center gap-4">
-        {/* 모드 아이콘 */}
-        <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${isReview ? "bg-violet-100" : "bg-sky-100"}`}>
-          {isReview
-            ? <Code2 size={16} className="text-violet-600" />
-            : <MessageSquare size={16} className="text-sky-600" />
-          }
-        </div>
-
-        {/* 내용 */}
-        <Link href={`/history/${session.id}`} className="flex-1 min-w-0" onClick={(e) => editing && e.preventDefault()}>
-          {editing ? (
-            <form onSubmit={handleRenameSubmit} onClick={(e) => e.stopPropagation()}>
-              <Input
-                ref={inputRef}
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                onBlur={handleRenameSubmit}
-                onKeyDown={(e) => e.key === "Escape" && setEditing(false)}
-                disabled={saving}
-                className="h-7 text-sm py-0"
-              />
-            </form>
-          ) : (
-            <>
-              <p className="font-medium text-sm truncate">{session.roadmaps?.topic ?? session.title ?? "학습 세션"}</p>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-xs text-muted-foreground">{categoryName}</span>
-                <span className="text-xs text-muted-foreground">·</span>
-                <span className="text-xs text-muted-foreground">
-                  {new Date(session.created_at).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}
-                </span>
-              </div>
-            </>
-          )}
-        </Link>
-
-        {/* 오른쪽: 모드 배지 + 점수/뱃지 + 메뉴 */}
-        <div className="shrink-0 flex flex-col items-end gap-1.5">
-          <div className="flex items-center gap-1">
-            <Badge variant="outline" className="text-xs">
-              {isReview ? "리뷰" : "대화"}
-            </Badge>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.preventDefault()}>
-                  <MoreHorizontal size={14} />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setEditing(true)}>
-                  <Pencil size={13} className="mr-2" /> 제목 편집
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onClick={() => onDelete(session.id)}
-                >
-                  <Trash2 size={13} className="mr-2" /> 삭제
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-          {session.score > 0 ? (
-            <span className={`text-xs font-semibold border rounded-md px-1.5 py-0.5 ${scoreBg(session.score)}`}>
-              {session.score}점
-            </span>
-          ) : null}
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -348,11 +219,12 @@ export default function HistoryPage() {
       ) : filtered.length === 0 ? (
         <EmptyState filtered={isFiltered} />
       ) : (
-        <div className="space-y-3">
+        <div className="flex flex-col gap-1.5">
           {filtered.map((session) => (
             <SessionCard
               key={session.id}
               session={session}
+              showMenu
               onDelete={setDeleteTargetId}
               onRename={handleRename}
             />

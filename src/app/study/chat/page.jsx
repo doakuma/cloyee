@@ -585,12 +585,28 @@ function ChatView() {
         ...(feedback && { feedback }),
       }));
 
+      // 중단 전 대화 요약 생성
+      let pauseSummary = null;
+      try {
+        const sumRes = await fetch("/api/chat/summarize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: apiMessages }),
+        });
+        if (sumRes.ok) {
+          const { summary } = await sumRes.json();
+          pauseSummary = summary ?? null;
+        }
+      } catch (sumErr) {
+        console.warn("[pause] 요약 생성 실패 (무시):", sumErr.message);
+      }
+
       let pauseSaved = false;
 
       if (sessionId) {
         const { error: sessErr } = await supabase
           .from("sessions")
-          .update({ score: currentScore })
+          .update({ score: currentScore, summary: pauseSummary })
           .eq("id", sessionId);
         if (sessErr) { console.error("[pause] sessions 업데이트 실패:", sessErr.message); }
         else {
@@ -604,7 +620,7 @@ function ChatView() {
       } else {
         const { data, error: sessErr } = await supabase
           .from("sessions")
-          .insert({ category_id: roadmap?.category_id ?? null, title, summary: null, score: currentScore, mode: "chat", is_complete: false, user_id: userId, roadmap_id: roadmapId ?? null })
+          .insert({ category_id: roadmap?.category_id ?? null, title, summary: pauseSummary, score: currentScore, mode: "chat", is_complete: false, user_id: userId, roadmap_id: roadmapId ?? null })
           .select("id")
           .single();
         if (sessErr) { console.error("[pause] sessions insert 실패:", sessErr.message); }
