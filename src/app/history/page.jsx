@@ -142,7 +142,7 @@ function SessionCard({ session, onDelete, onRename }) {
           )}
         </Link>
 
-        {/* 오른쪽: 모드 배지 + 점수 + 메뉴 */}
+        {/* 오른쪽: 모드 배지 + 점수/뱃지 + 메뉴 */}
         <div className="shrink-0 flex flex-col items-end gap-1.5">
           <div className="flex items-center gap-1">
             <Badge variant="outline" className="text-xs">
@@ -167,12 +167,28 @@ function SessionCard({ session, onDelete, onRename }) {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          {session.is_complete && session.score > 0 ? (
-            <span className={`text-xs font-semibold border rounded-md px-1.5 py-0.5 ${scoreBg(session.score)}`}>
-              {session.score}점
-            </span>
+          {session.is_complete ? (
+            session.score > 0 ? (
+              <span className={`text-xs font-semibold border rounded-md px-1.5 py-0.5 ${scoreBg(session.score)}`}>
+                {session.score}점
+              </span>
+            ) : null
           ) : (
-            <span className="text-xs text-muted-foreground">진행 중</span>
+            <div className="flex flex-col items-end gap-1">
+              <span className="text-xs font-medium text-yellow-600 bg-yellow-50 border border-yellow-200 rounded-md px-1.5 py-0.5">
+                🟡 학습 중
+              </span>
+              <Link
+                href={session.roadmap_id
+                  ? `/study/chat?roadmap_id=${session.roadmap_id}`
+                  : `/study/chat?category=${encodeURIComponent(session.categories?.name ?? "일반")}`
+                }
+                className="text-xs text-primary underline underline-offset-2 hover:opacity-70"
+                onClick={(e) => e.stopPropagation()}
+              >
+                이어서 학습하기
+              </Link>
+            </div>
           )}
         </div>
       </CardContent>
@@ -206,6 +222,7 @@ function EmptyState({ filtered }) {
 export default function HistoryPage() {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [tabFilter, setTabFilter] = useState("complete");   // "complete" | "ongoing"
   const [dateFilter, setDateFilter] = useState("all");      // "week" | "month" | "all"
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [deleteTargetId, setDeleteTargetId] = useState(null);
@@ -234,8 +251,7 @@ export default function HistoryPage() {
 
       let query = supabase
         .from("sessions")
-        .select("id, title, category_id, mode, score, is_complete, created_at, categories(name), roadmaps(topic)")
-        .eq("is_complete", true)
+        .select("id, title, category_id, roadmap_id, mode, score, is_complete, created_at, categories(name), roadmaps(topic)")
         .order("created_at", { ascending: false });
 
       if (userId) query = query.eq("user_id", userId);
@@ -269,11 +285,13 @@ export default function HistoryPage() {
   const filtered = useMemo(() => {
     const since = getDateRange(dateFilter);
     return sessions.filter((s) => {
+      if (tabFilter === "complete" && !s.is_complete) return false;
+      if (tabFilter === "ongoing" && s.is_complete) return false;
       if (since && new Date(s.created_at) < since) return false;
       if (categoryFilter !== "all" && s.category_id !== categoryFilter) return false;
       return true;
     });
-  }, [sessions, dateFilter, categoryFilter]);
+  }, [sessions, dateFilter, categoryFilter, tabFilter]);
 
   const isFiltered = dateFilter !== "all" || categoryFilter !== "all";
 
@@ -285,7 +303,7 @@ export default function HistoryPage() {
         <div>
           <h1 className="text-2xl font-bold">학습 기록</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            총 {sessions.length}개의 기록
+            총 {filtered.length}개의 기록
           </p>
         </div>
 
@@ -305,6 +323,12 @@ export default function HistoryPage() {
             </FilterButton>
           ))}
         </div>
+      </div>
+
+      {/* 완료/학습 중 탭 */}
+      <div className="flex items-center gap-1 bg-muted/60 rounded-xl p-1 w-fit mb-5">
+        <FilterButton active={tabFilter === "complete"} onClick={() => setTabFilter("complete")}>완료</FilterButton>
+        <FilterButton active={tabFilter === "ongoing"} onClick={() => setTabFilter("ongoing")}>학습 중</FilterButton>
       </div>
 
       {/* 카테고리 필터 */}
