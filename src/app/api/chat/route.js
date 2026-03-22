@@ -79,8 +79,12 @@ export async function POST(request) {
     return Response.json({ error: "message가 필요합니다." }, { status: 400 });
   }
 
+  const recentMessages = (messages ?? [])
+    .map(({ role, content }) => ({ role, content }))
+    .slice(-10);
+
   const conversationMessages = [
-    ...(messages ?? []).map(({ role, content }) => ({ role, content })),
+    ...recentMessages,
     { role: "user", content: message },
   ];
 

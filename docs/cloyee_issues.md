@@ -39,6 +39,7 @@
 | 22 | 대시보드 중단된 학습 표시 오류 | is_complete 필터 미적용 | is_complete=true 완료 세션만 표시 |
 | 23 | sessionStorage 키 충돌 | 로드맵별 구분 없이 단일 키 사용 | `cloyee_chat_{roadmapId\|categoryId}` 분리 |
 | 24 | 복습 요약에 category.name 표시 | roadmaps.topic 우선순위 낮음 | roadmaps.topic 우선 표시로 통일 |
+| 25 | 히스토리 토큰 누적 | messages 전체 전송으로 비용 선형 증가 | chat/review route.js — slice(-10)으로 최근 10턴만 전송 |
 
 ---
 
@@ -47,7 +48,6 @@
 | # | 항목 | 내용 | 우선순위 |
 |---|------|------|----------|
 | T1 | 게스트 데이터 보안 | user_id IS NULL 데이터는 RLS 상 누구나 조회 가능 | P2 |
-| T2 | 히스토리 토큰 누적 | 대화 길어질수록 비용 선형 증가, 최근 6~10턴 슬라이싱 미적용 | P2 |
 | T3 | AI 모델 개발/프로덕션 불일치 | claude-haiku-4-5 상태, 배포 전 claude-sonnet-4-6 교체 필요 | P1 (배포 전) |
 | T4 | RSC prefetch 503 | Vercel cold start 간헐적 발생 (실사용 영향 없음) | P3 |
 | T5 | 복습 후 재진입 미검증 | is_complete=true 저장 후 복습 분기 재진입 시나리오 미검증 | P2 |
