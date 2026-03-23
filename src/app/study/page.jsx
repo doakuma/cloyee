@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import RoadmapCard from "@/components/study/RoadmapCard";
 import ArchivedSection from "@/components/study/ArchivedSection";
 import AddRoadmapButton from "@/components/study/AddRoadmapButton";
+import CategoryManager from "@/components/study/CategoryManager";
 
 // ─── 데이터 fetching ──────────────────────────────────────────────────────────
 
@@ -10,9 +11,9 @@ async function getStudyData() {
   try {
     const supabase = await createSupabaseServerClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { active: [], archived: [] };
+    if (!user) return { active: [], archived: [], categories: [], userId: null };
 
-    const [{ data: activeData }, { data: archivedData }, { data: sessionData }] = await Promise.all([
+    const [{ data: activeData }, { data: archivedData }, { data: sessionData }, { data: categoryData }] = await Promise.all([
       supabase
         .from("roadmaps")
         .select("id, topic, difficulty, duration, category_id, categories(name, icon)")
@@ -31,6 +32,12 @@ async function getStudyData() {
         .eq("user_id", user.id)
         .not("roadmap_id", "is", null)
         .order("created_at", { ascending: false }),
+      supabase
+        .from("categories")
+        .select("id, name, icon, is_default, user_id")
+        .or(`is_default.eq.true,user_id.eq.${user.id}`)
+        .order("is_default", { ascending: false })
+        .order("created_at", { ascending: true }),
     ]);
 
     // roadmap별 최신 세션의 is_complete 맵 생성
@@ -47,17 +54,17 @@ async function getStudyData() {
     const active = (activeData ?? []).filter((rm) => !completedRoadmapIds.has(rm.id));
     const archived = archivedData ?? [];
 
-    return { active, archived };
+    return { active, archived, categories: categoryData ?? [], userId: user.id };
   } catch (e) {
     console.error("[study] 데이터 조회 실패:", e.message);
-    return { active: [], archived: [] };
+    return { active: [], archived: [], categories: [], userId: null };
   }
 }
 
 // ─── 페이지 ───────────────────────────────────────────────────────────────────
 
 export default async function StudyPage() {
-  const { active, archived } = await getStudyData();
+  const { active, archived, categories, userId } = await getStudyData();
 
   return (
     <div className="px-4 sm:px-8 pt-4 sm:pt-8 pb-8 max-w-5xl mx-auto space-y-10">
@@ -91,6 +98,9 @@ export default async function StudyPage() {
       {archived.length > 0 && (
         <ArchivedSection roadmaps={archived} />
       )}
+
+      {/* 카테고리 관리 */}
+      <CategoryManager initialCategories={categories} userId={userId} />
 
     </div>
   );

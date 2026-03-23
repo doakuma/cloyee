@@ -45,8 +45,8 @@ export async function middleware(request) {
     pathname.startsWith("/history") ||
     pathname.startsWith("/growth");
 
-  // 로그인 필요 경로 (개인 설정 등)
-  const isPrivate = pathname.startsWith("/my");
+  // 로그인 필요 경로
+  const isPrivate = pathname.startsWith("/my") || pathname.startsWith("/admin");
 
   if (!user && isPrivate) {
     const url = request.nextUrl.clone();
