@@ -3,6 +3,8 @@ import { headers } from "next/headers";
 import "./globals.css";
 import Sidebar from "@/components/common/Sidebar";
 import ProgressBar from "@/components/common/ProgressBar";
+import { Toaster } from "@/components/ui/sonner";
+import FeedbackButton from "@/components/common/FeedbackButton";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,6 +40,8 @@ export default async function RootLayout({ children }) {
             {children}
           </main>
         </div>
+        <FeedbackButton />
+        <Toaster position="bottom-center" />
       </body>
     </html>
   );

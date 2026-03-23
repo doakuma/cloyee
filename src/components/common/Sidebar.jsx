@@ -3,7 +3,14 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, BookOpen, ClipboardList, TrendingUp, User, LogOut } from "lucide-react";
+import {
+  LayoutDashboard,
+  BookOpen,
+  ClipboardList,
+  TrendingUp,
+  User,
+  LogOut,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 
@@ -23,7 +30,9 @@ export default function Sidebar() {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
       if (event === "SIGNED_IN") setVisible(true);
       if (event === "SIGNED_OUT") {
@@ -41,7 +50,7 @@ export default function Sidebar() {
   }
 
   const isHiddenPath = ["/login", "/auth", "/onboarding"].some((p) =>
-    pathname.startsWith(p)
+    pathname.startsWith(p),
   );
   if (!visible || isHiddenPath) return null;
 
@@ -59,7 +68,8 @@ export default function Sidebar() {
         {/* 네비게이션 */}
         <nav className="flex flex-col gap-1 p-3 flex-1">
           {navItems.map(({ href, label, icon: Icon }) => {
-            const isActive = pathname === href || pathname.startsWith(href + "/");
+            const isActive =
+              pathname === href || pathname.startsWith(href + "/");
             return (
               <Link
                 key={href}
@@ -68,7 +78,7 @@ export default function Sidebar() {
                   "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                   isActive
                     ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
                 )}
               >
                 <Icon size={18} />
@@ -77,17 +87,6 @@ export default function Sidebar() {
             );
           })}
         </nav>
-
-        {/* 하단 링크 */}
-        <div className="px-4 pb-2 flex items-center gap-3">
-          <Link href="/privacy" className="text-[11px] text-muted-foreground hover:text-foreground transition-colors">
-            개인정보처리방침
-          </Link>
-          <span className="text-muted-foreground/40 text-[11px]">·</span>
-          <Link href="/terms" className="text-[11px] text-muted-foreground hover:text-foreground transition-colors">
-            이용약관
-          </Link>
-        </div>
 
         {/* 하단 프로필 */}
         <div className="p-3 border-t border-border space-y-1">
@@ -98,7 +97,9 @@ export default function Sidebar() {
                 <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center shrink-0">
                   <User size={14} className="text-muted-foreground" />
                 </div>
-                <span className="text-sm text-muted-foreground">게스트 모드</span>
+                <span className="text-sm text-muted-foreground">
+                  게스트 모드
+                </span>
               </div>
               <Link
                 href="/login"
@@ -141,6 +142,22 @@ export default function Sidebar() {
             </div>
           )}
         </div>
+
+        <div className="px-4 pb-2 flex items-center gap-3">
+          <Link
+            href="/privacy"
+            className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            개인정보처리방침
+          </Link>
+          <span className="text-muted-foreground/40 text-[11px]">·</span>
+          <Link
+            href="/terms"
+            className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            이용약관
+          </Link>
+        </div>
       </aside>
 
       {/* 모바일 하단 탭바 */}
@@ -155,7 +172,7 @@ export default function Sidebar() {
                 "flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-medium transition-colors",
                 isActive
                   ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               <Icon size={20} />
