@@ -7,8 +7,9 @@ import MarkdownViewer from "@/components/admin/MarkdownViewer";
 
 const DOCS_DIR = path.join(process.cwd(), "docs");
 
-export default function AdminDocPage({ params }) {
-  const slug = decodeURIComponent(params.slug);
+export default async function AdminDocPage({ params }) {
+  const { slug: rawSlug } = await params;
+  const slug = decodeURIComponent(rawSlug);
   const filePath = path.join(DOCS_DIR, `${slug}.md`);
 
   if (!fs.existsSync(filePath)) notFound();
