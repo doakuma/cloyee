@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
-import GoogleLoginButton from "@/components/landing/GoogleLoginButton";
+import LandingCTA from "@/components/landing/LandingCTA";
 import { Brain, BarChart2, TrendingUp, Map, MessageSquare, BookOpen, GraduationCap, Briefcase, Code2 } from "lucide-react";
 
 // 로그인된 유저는 대시보드로 리다이렉트
@@ -23,7 +23,7 @@ export default async function LandingPage() {
           소크라테스식 대화로 배우고, 코드 리뷰로 성장하고,<br className="hidden sm:block" />
           기록으로 쌓아가세요
         </p>
-        <GoogleLoginButton className="flex items-center justify-center gap-3 rounded-xl bg-foreground text-background px-8 py-3.5 text-sm font-semibold hover:opacity-85 transition-opacity" />
+        <LandingCTA className="flex items-center justify-center gap-3 rounded-xl bg-foreground text-background px-8 py-3.5 text-sm font-semibold hover:opacity-85 transition-opacity" />
         <Link
           href="/login"
           className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors"
@@ -146,7 +146,7 @@ export default async function LandingPage() {
       {/* ── 하단 CTA ── */}
       <section className="px-6 pb-24 text-center">
         <p className="text-muted-foreground text-sm mb-5">지금 바로 시작해보세요</p>
-        <GoogleLoginButton className="inline-flex items-center justify-center gap-3 rounded-xl bg-foreground text-background px-8 py-3.5 text-sm font-semibold hover:opacity-85 transition-opacity" />
+        <LandingCTA className="inline-flex items-center justify-center gap-3 rounded-xl bg-foreground text-background px-8 py-3.5 text-sm font-semibold hover:opacity-85 transition-opacity" />
         <div className="mt-3">
           <Link
             href="/login"
