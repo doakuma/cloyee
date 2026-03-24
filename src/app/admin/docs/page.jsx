@@ -16,15 +16,17 @@ const DOC_META = {
   "cloyee_multiuser_roadmap": { label: "멀티유저 로드맵", desc: "다중 사용자 기능 계획" },
   "cloyee_v2_ideas": { label: "v2 아이디어", desc: "향후 기능 아이디어 정리" },
   "AI 토큰 비용 및 최적화 전략": { label: "AI 토큰 최적화", desc: "비용 분석 및 최적화 전략" },
+  "Cloyee_개발개념_학습가이드": { label: "개발 개념 학습 가이드", desc: "Cloyee 관련 개발 개념 정리" },
 };
 
 function getDocs() {
   const files = fs.readdirSync(DOCS_DIR).filter((f) => f.endsWith(".md"));
   return files.map((file) => {
-    const slug = file.replace(/\.md$/, "");
-    const meta = DOC_META[slug] ?? { label: slug, desc: "" };
+    const name = file.replace(/\.md$/, "");
+    const urlSlug = name.replace(/ /g, "-");
+    const meta = DOC_META[name] ?? { label: name, desc: "" };
     const stat = fs.statSync(path.join(DOCS_DIR, file));
-    return { slug, file, ...meta, updatedAt: stat.mtime };
+    return { slug: urlSlug, name, ...meta, updatedAt: stat.mtime };
   });
 }
 
@@ -42,7 +44,7 @@ export default function AdminDocsPage() {
         {docs.map(({ slug, label, desc, updatedAt }) => (
           <Link
             key={slug}
-            href={`/admin/docs/${encodeURIComponent(slug)}`}
+            href={`/admin/docs/${slug}`}
             className="flex items-start gap-3 rounded-lg border border-border bg-white dark:bg-neutral-900 px-4 py-3.5 hover:bg-muted/40 transition-colors"
           >
             <FileText size={18} className="text-muted-foreground mt-0.5 shrink-0" />

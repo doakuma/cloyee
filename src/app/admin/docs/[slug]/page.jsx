@@ -9,8 +9,8 @@ const DOCS_DIR = path.join(process.cwd(), "docs");
 
 export default async function AdminDocPage({ params }) {
   const { slug: rawSlug } = await params;
-  const slug = decodeURIComponent(rawSlug);
-  const filePath = path.join(DOCS_DIR, `${slug}.md`);
+  const fileName = decodeURIComponent(rawSlug).replace(/-/g, " ");
+  const filePath = path.join(DOCS_DIR, `${fileName}.md`);
 
   if (!fs.existsSync(filePath)) notFound();
 
