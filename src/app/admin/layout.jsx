@@ -6,6 +6,7 @@ const NAV_ITEMS = [
   { href: "/admin/users", label: "사용자" },
   { href: "/admin/categories", label: "카테고리" },
   { href: "/admin/feedback", label: "피드백" },
+  { href: "/admin/docs", label: "문서" },
 ];
 
 export default async function AdminLayout({ children }) {
