@@ -1,5 +1,5 @@
 # Cloyee API 설계
-> 최초 작성: 2026.03 | 최종 업데이트: 2026.03.22 | 버전: v0.2
+> 최초 작성: 2026.03 | 최종 업데이트: 2026.03.24 | 버전: v0.2
 
 ---
 
@@ -11,8 +11,9 @@
     ├── Supabase SDK → DB 직접 연동 (categories, sessions, reviews, roadmaps, profiles)
     │
     └── Next.js API Route
-            ├── POST /api/chat    → Claude API (학습 대화, SSE 스트리밍)
-            └── POST /api/review  → Claude API (코드 리뷰, SSE 스트리밍)
+            ├── POST /api/chat           → Claude API (학습 대화, SSE 스트리밍)
+            ├── POST /api/chat/summarize → Claude API (중단 세션 요약, JSON)
+            └── POST /api/review         → Claude API (코드 리뷰, SSE 스트리밍)
 ```
 
 > Supabase는 SDK로 프론트에서 직접 연동하므로 별도 API Route 불필요
@@ -126,6 +127,39 @@ data: {"type":"done","score":75,"is_complete":false,"choices":null,"summary":nul
   "summary": null
 }
 ```
+
+---
+
+## 3. POST /api/chat/summarize (중단 세션 요약)
+
+"오늘은 여기까지" 클릭 시 호출. 학습 대화 내용을 2~3문장으로 요약해 다음 방문 시 복습 카드에 표시.
+
+### 요청 (Request)
+
+```json
+{
+  "messages": [
+    { "role": "user", "content": "useEffect가 뭔가요?" },
+    { "role": "assistant", "content": "useEffect는 렌더링 이후 실행되는 Hook이에요." }
+  ]
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| messages | array | ✅ | 대화 히스토리 (최근 10턴 자동 슬라이싱) |
+
+### 응답 (Response)
+
+```json
+{ "summary": "오늘은 React useEffect의 기본 개념과 의존성 배열의 역할에 대해 학습했어요. ..." }
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| summary | string | AI가 생성한 2~3문장 요약 |
+
+> 실패 시 `{ "error": "..." }` 반환. 클라이언트는 실패해도 `summary: null`로 세션 저장 진행 (graceful 처리).
 
 ---
 

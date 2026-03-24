@@ -1,5 +1,5 @@
 # Cloyee DB 설계
-> 최초 작성: 2026.03 | 최종 업데이트: 2026.03.22 | 버전: v0.2 | DB: Supabase (PostgreSQL)
+> 최초 작성: 2026.03 | 최종 업데이트: 2026.03.24 | 버전: v0.2 | DB: Supabase (PostgreSQL)
 > Supabase 프로젝트: InstructorCloyee (fycowopnxqjkpyjarwul)
 
 ---
@@ -10,6 +10,8 @@
 auth.users (Supabase Auth)
     │
     ├── profiles          ← 사용자 프로필 (트리거 자동 생성)
+    │
+    ├── feedback          ← 사용자 피드백 (user_id nullable)
     │
     └── categories ───┐
                       ├── roadmaps   ← 학습 로드맵 (sessions와 연결)
@@ -55,6 +57,7 @@ AI 활용 / 🤖 / true
 | experience | varchar | 경력 (예: 5년~10년) |
 | level | varchar | 레벨 (예: 중급) |
 | onboarding_done | boolean | 온보딩 완료 여부 |
+| is_admin | boolean | 어드민 여부 (default: false) |
 | category_order | jsonb | 카테고리 표시 순서 |
 | created_at | timestamp | 생성일시 |
 | updated_at | timestamp | 수정일시 |
@@ -72,6 +75,7 @@ AI 활용 / 🤖 / true
 | user_id | uuid | FK → auth.users(id) |
 | topic | varchar | 학습 주제 (예: React useEffect) |
 | level | varchar | 난이도 (예: 초급 / 중급 / 고급) |
+| status | varchar | 상태 (`active` / `paused` / `completed`) |
 | chapters | jsonb | 교안 챕터 목록 (v0.3 예정, 현재 미사용) |
 | created_at | timestamp | 생성일시 |
 
@@ -118,6 +122,22 @@ AI 활용 / 🤖 / true
 
 **RLS 정책:**
 - SELECT/INSERT: sessions 테이블 조인으로 소유권 확인
+
+---
+
+### 6. feedback (피드백)
+
+| 컬럼명 | 타입 | 설명 |
+|--------|------|------|
+| id | uuid | PK, 자동 생성 |
+| user_id | uuid | FK → auth.users(id), NULL이면 게스트 |
+| category | text | 피드백 유형 (`bug` / `suggestion` / `other`) |
+| content | text | 피드백 내용 |
+| created_at | timestamp | 생성일시 |
+
+**RLS 정책:**
+- INSERT: 전체 허용 (로그인/게스트 모두)
+- SELECT: 서버 클라이언트 전용 (어드민 페이지에서 `createServerClient`로 조회)
 
 ---
 
@@ -228,6 +248,21 @@ create table profiles (
 
 -- handle_new_user 트리거 (Supabase 대시보드에서 설정)
 -- 신규 사용자 가입 시 profiles 레코드 자동 생성
+
+-- v0.2: profiles.is_admin 컬럼 추가 (어드민 페이지 접근 제어)
+ALTER TABLE profiles ADD COLUMN is_admin boolean default false;
+
+-- v0.2: roadmaps.status 컬럼 추가
+ALTER TABLE roadmaps ADD COLUMN status varchar default 'active';
+
+-- v0.2: feedback 테이블 생성
+create table feedback (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete set null,
+  category text not null check (category in ('bug', 'suggestion', 'other')),
+  content text not null,
+  created_at timestamptz default now()
+);
 ```
 
 ---

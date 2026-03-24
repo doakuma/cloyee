@@ -1,6 +1,6 @@
 # Cloyee 이슈 트래커
 
-> 최종 업데이트: 2026.03.22 | 버전: v0.2
+> 최종 업데이트: 2026.03.24 | 버전: v0.2
 
 ---
 
@@ -40,6 +40,8 @@
 | 23 | sessionStorage 키 충돌 | 로드맵별 구분 없이 단일 키 사용 | `cloyee_chat_{roadmapId\|categoryId}` 분리 |
 | 24 | 복습 요약에 category.name 표시 | roadmaps.topic 우선순위 낮음 | roadmaps.topic 우선 표시로 통일 |
 | 25 | 히스토리 토큰 누적 | messages 전체 전송으로 비용 선형 증가 | chat/review route.js — slice(-10)으로 최근 10턴만 전송 |
+| 26 | 어드민 피드백 목록 미표시 | 서버 컴포넌트에서 클라이언트 supabase 사용 | createServerClient (@supabase/ssr) 직접 사용으로 교체 |
+| 27 | 인앱 브라우저 소셜 로그인 차단 | 카카오톡/인스타 등 인앱 브라우저에서 OAuth 팝업 차단 | useInAppBrowser 훅 추가, iOS 자동 Magic Link 전환, Android Chrome Intent URL |
 
 ---
 
@@ -105,3 +107,11 @@
 | P2 | URL 교재 기능 (Cheerio 크롤링) | 중간 | |
 | P3 | 학습 후 자동 퀴즈 | 중간 | |
 | P4 | 스케줄 복습 알림 (에빙하우스) | 어려움 | |
+
+---
+
+## 🟡 미해결 — 추가 발견 (2026.03.24)
+
+| # | 위치 | 현재 문제 | 우선순위 |
+|---|------|-----------|----------|
+| U5 | login/page.jsx | Android 인앱 `openInChrome` Intent URL fallback setTimeout이 href를 window.location.href 값으로 재설정하는 구조적 오류 | P2 |
