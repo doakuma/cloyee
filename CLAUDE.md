@@ -5,8 +5,8 @@
 - **버전**: v0.2 진행 중
 - **배포 URL**: https://cloyee.vercel.app
 - **로컬**: http://localhost:3000
-- **마지막 작업**: UX 휴리스틱 평가 + SessionCard 리팩토링 + 중단 세션 복습 요약 (2026.03.22)
-- **다음 작업**: v0.2 — 커스텀 카테고리 UI (Priority 1)
+- **마지막 작업**: FeedbackButton 리스타일링 (책갈피 스타일, 오른쪽 상단 고정) + Feedback 이미지 업로드 기능 계획 (2026.03.25)
+- **다음 작업**: v0.2 — Feedback 이미지 업로드 기능 (Priority 2)
 
 ---
 

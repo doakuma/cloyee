@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { toast } from "sonner";
-import { MessageCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import {
   Dialog,
@@ -60,26 +59,22 @@ export default function FeedbackButton() {
 
   return (
     <>
-      {/* FAB */}
-      <div className="group fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2">
-        {/* 툴팁 */}
-        <span className="pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity bg-neutral-900 text-white text-xs rounded-lg px-3 py-1.5 whitespace-nowrap shadow-lg">
-          뭐 불편한 건 없으신지...?
-        </span>
-        <button
-          onClick={() => setOpen(true)}
-          className="w-14 h-14 rounded-full bg-neutral-900 text-white shadow-lg hover:bg-neutral-700 transition-colors flex items-center justify-center"
-          aria-label="피드백 보내기"
-        >
-          <MessageCircle size={22} />
-        </button>
-      </div>
+      {/* 책갈피 스타일 버튼 */}
+      <button
+        onClick={() => setOpen(true)}
+        className="fixed top-20 right-0 z-50 bg-neutral-900 text-white px-4 py-2 rounded-l-lg hover:bg-neutral-700 transition-colors shadow-lg font-medium text-xs tracking-widest"
+        aria-label="피드백 보내기"
+        style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+      >
+        FEEDBACK
+      </button>
 
       {/* 모달 */}
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>피드백 보내기</DialogTitle>
+            <p className="text-xs text-muted-foreground mt-2">뭐 불편한 건 없으신지...?</p>
           </DialogHeader>
 
           <div className="space-y-4 py-2">

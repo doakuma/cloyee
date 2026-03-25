@@ -32,11 +32,15 @@ export default async function RootLayout({ children }) {
 
   return (
     <html lang="ko">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
         <ProgressBar />
         <div className="flex h-screen bg-background overflow-hidden">
           {!hideSidebar && <Sidebar />}
-          <main className={`flex-1 overflow-y-auto ${hideSidebar ? "" : "pb-16 md:pb-0"}`}>
+          <main
+            className={`flex-1 overflow-y-auto ${hideSidebar ? "" : "pb-16 md:pb-0"}`}
+          >
             {children}
           </main>
         </div>
