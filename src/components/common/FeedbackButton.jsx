@@ -78,7 +78,10 @@ export default function FeedbackButton() {
         imageUrls = await Promise.all(
           images.map(async ({ file }) => {
             const timestamp = Date.now();
-            const path = `${user?.id ?? 'guest'}/${timestamp}_${file.name}`;
+            const random = Math.random().toString(36).slice(2, 9);
+            // 파일명에서 한글/특수문자 제거 (Supabase Storage 호환성)
+            const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+            const path = `${user?.id ?? 'guest'}/${timestamp}_${random}.${ext}`;
             const { error } = await supabase.storage
               .from("feedback-images")
               .upload(path, file);
