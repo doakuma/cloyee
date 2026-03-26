@@ -153,22 +153,22 @@ export default function FeedbackButton() {
 
       {/* 모달 */}
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md gap-2 rounded-[12px]">
           <DialogHeader>
             <DialogTitle>피드백 보내기</DialogTitle>
-            <p className="text-xs text-muted-foreground mt-2">뭐 불편한 건 없으신지...?</p>
+            <p className="text-sm text-muted-foreground mt-2">뭐 불편한 건 없으신지...?</p>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
+          <div className="space-y-2 py-2">
             <div className="flex gap-2">
               {CATEGORIES.map(({ value, label, emoji }) => (
                 <button
                   key={value}
                   onClick={() => setCategory(value)}
-                  className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg border text-xs font-medium transition-colors ${
+                  className={`flex-1 flex flex-col items-center gap-1 py-3 rounded-lg border-2 text-sm font-semibold transition-colors ${
                     category === value
-                      ? "border-primary bg-primary/5 text-primary"
-                      : "border-border text-muted-foreground hover:border-foreground/30"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/50 hover:bg-muted/50"
                   }`}
                 >
                   <span className="text-base">{emoji}</span>
@@ -177,23 +177,34 @@ export default function FeedbackButton() {
               ))}
             </div>
 
-            <div className="relative">
+            <div>
               <Textarea
                 placeholder="자유롭게 적어주세요 😊"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
+                maxLength={500}
                 rows={4}
-                className="resize-none pr-10"
+                className="resize-none rounded-lg"
               />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={images.length >= 3}
-                className="absolute bottom-2 right-2 text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                aria-label="이미지 첨부"
-              >
-                <Paperclip className="w-4 h-4" />
-              </button>
+              <div className="flex items-center justify-between mt-2">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={images.length >= 3}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md px-2.5 py-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="이미지 첨부"
+                >
+                  <Paperclip className="w-4 h-4" />
+                  <span>이미지 첨부</span>
+                </button>
+                <span className={`text-xs ${
+                  content.length >= 490 ? 'text-red-500 font-semibold' :
+                  content.length >= 400 ? 'text-orange-500' :
+                  'text-muted-foreground'
+                }`}>
+                  {content.length}/500
+                </span>
+              </div>
             </div>
 
             {images.length > 0 && (
@@ -231,7 +242,8 @@ export default function FeedbackButton() {
           <Button
             onClick={handleSubmit}
             disabled={submitting || !content.trim()}
-            className="w-full"
+            className="w-full rounded-sm"
+            size="lg"
           >
             {submitting ? "전달 중..." : "전달하기"}
           </Button>
