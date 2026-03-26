@@ -1,4 +1,3 @@
-import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -9,36 +8,22 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-async function getUsers(supabase) {
-  // profiles 조회 (auth.users는 service role 없이 접근 불가 → id 앞 8자리 표시)
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, job_role, is_admin, created_at")
-    .order("created_at", { ascending: false });
-
-  if (!profiles?.length) return [];
-
-  // 완료 세션 수 집계
-  const { data: sessions } = await supabase
-    .from("sessions")
-    .select("user_id")
-    .eq("is_complete", true)
-    .in("user_id", profiles.map((p) => p.id));
-
-  const sessionCountMap = {};
-  sessions?.forEach(({ user_id }) => {
-    sessionCountMap[user_id] = (sessionCountMap[user_id] ?? 0) + 1;
+async function getUsers() {
+  // API에서 데이터 조회 (service role 사용)
+  const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/admin/users`, {
+    cache: "no-store",
   });
 
-  return profiles.map((p) => ({
-    ...p,
-    session_count: sessionCountMap[p.id] ?? 0,
-  }));
+  if (!res.ok) {
+    console.error("Failed to fetch users:", res.statusText);
+    return [];
+  }
+
+  return res.json();
 }
 
 export default async function AdminUsersPage() {
-  const supabase = await createSupabaseServerClient();
-  const users = await getUsers(supabase);
+  const users = await getUsers();
 
   return (
     <div className="space-y-6">
@@ -52,6 +37,7 @@ export default async function AdminUsersPage() {
           <TableHeader>
             <TableRow>
               <TableHead>ID</TableHead>
+              <TableHead>이메일</TableHead>
               <TableHead>직군</TableHead>
               <TableHead>가입일</TableHead>
               <TableHead className="text-center">완료 세션</TableHead>
@@ -71,6 +57,7 @@ export default async function AdminUsersPage() {
                   <TableCell className="font-mono text-sm text-muted-foreground">
                     {u.id.slice(0, 8)}
                   </TableCell>
+                  <TableCell className="text-sm">{u.email}</TableCell>
                   <TableCell>{u.job_role ?? "—"}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {new Date(u.created_at).toLocaleDateString("ko-KR", { year: "numeric", month: "short", day: "numeric" })}
