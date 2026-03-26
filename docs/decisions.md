@@ -7,6 +7,35 @@
 
 ---
 
+## [2026.03.26] 어드민 정책 수립
+
+**결정**: 관리자 계정을 위한 어드민 패널과 Sidebar Admin 탭 구현
+
+**이유**:
+- 서비스 운영을 위해 사용자/피드백/카테고리 등을 관리할 필요
+- 어드민 계정은 이미 있지만 UI에서 접근 불가능
+
+**정책**:
+1. **어드민 식별**: `profiles.is_admin = true`
+2. **UI 위치**: Sidebar 네비게이션 (is_admin=true일 때만 표시)
+3. **페이지**: /admin/users, /admin/categories, /admin/feedback, /admin/docs
+4. **접근 제어**: 로그인 필수 + is_admin 체크 (middleware + admin/layout)
+
+**대안**:
+1. 대시보드 배너 — 항상 눈에 띄지만 배너 공간 점유
+2. 프로필 드롭다운 — 숨겨져 있어서 모르기 쉬움
+3. Sidebar Admin 탭 ✅ — 자연스러움, 네비 구조와 통일, 모바일에서 자동 숨김
+
+**트레이드오프**:
+- Sidebar와 profiles 쿼리 필요 (minor — 성능 무시할 수 있음)
+- 모바일에서는 노출 안 됨 (대부분 데스크톱에서 사용하므로 OK)
+
+**구현**:
+- [src/components/common/Sidebar.jsx](src/components/common/Sidebar.jsx): is_admin 쿼리 + Admin 탭 조건부 렌더링
+- Shield 아이콘 + "관리자" 레이블
+
+---
+
 ## [2026.03.25] FeedbackButton 책갈피 스타일
 
 **결정**: Feedback 버튼을 오른쪽 상단 고정 책갈피 스타일로 변경

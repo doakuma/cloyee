@@ -198,6 +198,29 @@ ALTER TABLE reviews ADD COLUMN user_id UUID REFERENCES auth.users(id) ON DELETE 
 - 함수형 컴포넌트만 사용
 - JavaScript 사용 (TypeScript 사용 안 함)
 
+## 🔐 어드민 정책
+
+**어드민 식별**:
+- `profiles.is_admin = true` 컬럼으로 어드민 여부 판단
+- 수동으로 DB에서 `UPDATE profiles SET is_admin = true WHERE id = '...'` 로 설정
+
+**어드민 패널** (`/admin/*`):
+- **접근 제어**: 로그인 필수 + `is_admin = true` 필수 (middleware.js + admin/layout.jsx)
+- **페이지**:
+  - `/admin/users` — 사용자 목록, is_admin 토글
+  - `/admin/categories` — 기본/커스텀 카테고리 관리
+  - `/admin/feedback` — 피드백 조회 및 삭제
+  - `/admin/docs` — 관리자 문서 (마크다운 업로드/편집)
+
+**UI**:
+- Sidebar 네비게이션에 **Admin 탭** 추가 (is_admin=true일 때만)
+  - Shield 아이콘 + "관리자" 레이블
+  - 데스크톱(md) 이상에서 표시
+
+**기술 세부사항**:
+- admin/layout.jsx: `is_admin` 체크 후 redirect("/dashboard") (권한 없을 시)
+- 어드민이 볼 수 있는 데이터: 모든 사용자/카테고리/피드백 (RLS 정책과 무관하게, 별도 관리자 쿼리)
+
 ## 프로젝트 경로
 
 `C:\Private\2026\withCloyee\01 grabWithCloyee\cloyee\`

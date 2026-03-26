@@ -10,6 +10,7 @@ import {
   TrendingUp,
   User,
   LogOut,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -25,15 +26,41 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [visible, setVisible] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    async function loadUser() {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      setUser(currentUser);
+
+      if (currentUser) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("is_admin")
+          .eq("id", currentUser.id)
+          .maybeSingle();
+        setIsAdmin(profile?.is_admin ?? false);
+      }
+    }
+
+    loadUser();
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
+      if (session?.user) {
+        supabase
+          .from("profiles")
+          .select("is_admin")
+          .eq("id", session.user.id)
+          .maybeSingle()
+          .then(({ data: profile }) => setIsAdmin(profile?.is_admin ?? false));
+      } else {
+        setIsAdmin(false);
+      }
       if (event === "SIGNED_IN") setVisible(true);
       if (event === "SIGNED_OUT") {
         setVisible(false);
@@ -86,6 +113,21 @@ export default function Sidebar() {
               </Link>
             );
           })}
+          {/* 어드민 탭 */}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                pathname.startsWith("/admin")
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+              )}
+            >
+              <Shield size={18} />
+              관리자
+            </Link>
+          )}
         </nav>
 
         {/* 하단 프로필 */}
