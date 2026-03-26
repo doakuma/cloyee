@@ -10,7 +10,7 @@
 | 항목 | 값 |
 |------|-----|
 | **현재 버전** | v0.2 진행 중 |
-| **마지막 업데이트** | 2026.03.26 (Feedback 이미지 업로드 완료) |
+| **마지막 업데이트** | 2026.03.26 (FeedbackButton UI 개선 완료) |
 | **배포 URL** | https://cloyee.vercel.app |
 | **로컬** | http://localhost:3000 |
 
@@ -46,6 +46,14 @@
   - Supabase Storage 버킷 생성 (feedback-images)
   - 파일명 처리 (한글/특수문자 제거, 고유성 보장)
   - feedback.images TEXT[] 저장
+- **FeedbackButton 모달 UI 개선** ✅
+  - 부제목 폰트 사이즈 증대 (text-xs → text-sm)
+  - 카테고리 버튼 가시성 강화 (border-2, 호버 효과)
+  - 이미지 첨부 버튼 리디자인 (텍스트 레이블, 테두리 스타일)
+  - 글자수 카운터 추가 (maxLength=500, 색 강조)
+  - 전달하기 버튼 높이 증가 (size="lg")
+  - 간격 최적화 (gap-6→gap-2, space-y-4→space-y-2)
+  - Border-radius 설정 (DialogContent 12px, Textarea 8px, 버튼 4px)
 
 ---
 
@@ -64,10 +72,9 @@
 | # | 기능 | 난이도 | 우선순위 |
 |---|------|--------|---------|
 | 1 | 커스텀 카테고리 — DB user_id 컬럼 + UI | 쉬움 | Priority 1 |
-| 2 | **Feedback 이미지 업로드** | 중간 | Priority 2 |
-| 3 | URL 교재 기능 — Cheerio 크롤링 | 중간 | Priority 3 |
-| 4 | 학습 후 자동 퀴즈 | 중간 | Priority 3 |
-| 5 | 스케줄 복습 알림 (에빙하우스) | 어려움 | Priority 4 |
+| 2 | URL 교재 기능 — Cheerio 크롤링 | 중간 | Priority 2 |
+| 3 | 학습 후 자동 퀴즈 | 중간 | Priority 3 |
+| 4 | 스케줄 복습 알림 (에빙하우스) | 어려움 | Priority 4 |
 
 ---
 
