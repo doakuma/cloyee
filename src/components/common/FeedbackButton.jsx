@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Paperclip, X } from "lucide-react";
 
 const CATEGORIES = [
   { value: "bug",        label: "버그 신고", emoji: "🐛" },
@@ -21,12 +22,47 @@ const CATEGORIES = [
 
 export default function FeedbackButton() {
   const pathname = usePathname();
+  const fileInputRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [category, setCategory] = useState("suggestion");
   const [content, setContent] = useState("");
+  const [images, setImages] = useState([]);
   const [submitting, setSubmitting] = useState(false);
 
   if (pathname?.startsWith("/admin")) return null;
+
+  function handleFileSelect(e) {
+    const files = Array.from(e.target.files || []);
+    if (images.length + files.length > 3) {
+      toast.error("최대 3장까지 첨부 가능합니다");
+      return;
+    }
+
+    files.forEach(file => {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("파일 크기는 5MB 이하여야 합니다");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImages(prev => [...prev, { file, preview: e.target.result }]);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // 같은 파일 재선택 가능하도록 초기화
+    e.target.value = "";
+  }
+
+  function removeImage(index) {
+    setImages(prev => {
+      const newImages = prev.filter((_, i) => i !== index);
+      // 이전 preview blob URL 해제
+      URL.revokeObjectURL(prev[index].preview);
+      return newImages;
+    });
+  }
 
   async function handleSubmit() {
     const trimmed = content.trim();
@@ -35,9 +71,45 @@ export default function FeedbackButton() {
     setSubmitting(true);
     const { data: { user } } = await supabase.auth.getUser();
 
+    let imageUrls = [];
+    try {
+      // 이미지 Storage 업로드
+      if (images.length > 0) {
+        imageUrls = await Promise.all(
+          images.map(async ({ file }) => {
+            const timestamp = Date.now();
+            const path = `${user?.id ?? 'guest'}/${timestamp}_${file.name}`;
+            const { error } = await supabase.storage
+              .from("feedback-images")
+              .upload(path, file);
+
+            if (error) {
+              console.error("이미지 업로드 실패:", error);
+              return null;
+            }
+
+            const { data } = supabase.storage
+              .from("feedback-images")
+              .getPublicUrl(path);
+            return data.publicUrl;
+          })
+        );
+        // null 값 제거 (업로드 실패한 이미지)
+        imageUrls = imageUrls.filter(Boolean);
+      }
+    } catch (err) {
+      console.error("이미지 처리 중 오류:", err);
+      toast.error("이미지 업로드 중 오류가 발생했습니다. 텍스트만 저장합니다.");
+    }
+
     const { error } = await supabase
       .from("feedback")
-      .insert({ user_id: user?.id ?? null, category, content: trimmed });
+      .insert({
+        user_id: user?.id ?? null,
+        category,
+        content: trimmed,
+        images: imageUrls,
+      });
 
     setSubmitting(false);
 
@@ -50,11 +122,18 @@ export default function FeedbackButton() {
     setOpen(false);
     setCategory("suggestion");
     setContent("");
+    setImages([]);
   }
 
   function handleOpenChange(val) {
     setOpen(val);
-    if (!val) { setCategory("suggestion"); setContent(""); }
+    if (!val) {
+      setCategory("suggestion");
+      setContent("");
+      // 미리보기 URL 정리
+      images.forEach(img => URL.revokeObjectURL(img.preview));
+      setImages([]);
+    }
   }
 
   return (
@@ -95,12 +174,54 @@ export default function FeedbackButton() {
               ))}
             </div>
 
-            <Textarea
-              placeholder="자유롭게 적어주세요 😊"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              rows={4}
-              className="resize-none"
+            <div className="relative">
+              <Textarea
+                placeholder="자유롭게 적어주세요 😊"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                rows={4}
+                className="resize-none pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={images.length >= 3}
+                className="absolute bottom-2 right-2 text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                aria-label="이미지 첨부"
+              >
+                <Paperclip className="w-4 h-4" />
+              </button>
+            </div>
+
+            {images.length > 0 && (
+              <div className="flex gap-2 flex-wrap">
+                {images.map((img, i) => (
+                  <div key={i} className="relative group">
+                    <img
+                      src={img.preview}
+                      alt={`첨부 이미지 ${i + 1}`}
+                      className="w-16 h-16 object-cover rounded-md border border-border"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(i)}
+                      className="absolute -top-2 -right-2 bg-black text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      aria-label="이미지 제거"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
             />
           </div>
 
