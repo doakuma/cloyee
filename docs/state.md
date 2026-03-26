@@ -10,7 +10,7 @@
 | 항목 | 값 |
 |------|-----|
 | **현재 버전** | v0.2 진행 중 |
-| **마지막 업데이트** | 2026.03.26 |
+| **마지막 업데이트** | 2026.03.26 (Feedback 이미지 업로드 완료) |
 | **배포 URL** | https://cloyee.vercel.app |
 | **로컬** | http://localhost:3000 |
 
@@ -35,13 +35,17 @@
 - RLS 정책 (categories/sessions/reviews) ✅
 - Sidebar & 모바일 탭바 업데이트 ✅
 
-### v0.2 기술 개선 (2026.03.17~03.22)
+### v0.2 기술 개선 (2026.03.17~03.26)
 - SSE 스트리밍 적용 (실시간 타이핑 효과)
 - 학습 플로우 재설계 (첫학습 / 복습 분기)
 - UX 휴리스틱 평가 (Nielsen 10) — 7개 이슈 발견, 5개 해결
 - 중단 세션 복습 요약 (`/api/chat/summarize`)
 - 히스토리 슬라이싱 (`messages.slice(-10)`)
 - SessionCard 공통 컴포넌트 추출
+- **Feedback 이미지 업로드** ✅
+  - Supabase Storage 버킷 생성 (feedback-images)
+  - 파일명 처리 (한글/특수문자 제거, 고유성 보장)
+  - feedback.images TEXT[] 저장
 
 ---
 
@@ -49,13 +53,7 @@
 
 | 항목 | 상태 | 우선순위 |
 |------|------|---------|
-| FeedbackButton 리스타일링 | 완료 | - |
-| **Feedback 이미지 업로드** | 계획 중 | Priority 2 |
-
-**Feedback 이미지 업로드** 기능:
-- 사용자가 Feedback 작성 시 이미지 첨부 가능
-- Supabase Storage에 저장
-- reviews.images JSONB 컬럼 추가 예정
+| 커스텀 카테고리 | 계획 중 | Priority 1 |
 
 ---
 
