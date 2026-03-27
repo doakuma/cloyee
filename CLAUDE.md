@@ -5,8 +5,8 @@
 - **버전**: v0.2 진행 중
 - **배포 URL**: https://cloyee.vercel.app
 - **로컬**: http://localhost:3000
-- **마지막 작업**: FeedbackButton 리스타일링 (책갈피 스타일, 오른쪽 상단 고정) + Feedback 이미지 업로드 기능 계획 (2026.03.25)
-- **다음 작업**: v0.2 — Feedback 이미지 업로드 기능 (Priority 2)
+- **마지막 작업**: Feedback 이미지 업로드 기능 완료 (2026.03.27)
+- **다음 작업**: v0.2 — URL 교재 기능 (Priority 2)
 
 ---
 
@@ -64,6 +64,15 @@ ALTER TABLE reviews ADD COLUMN user_id UUID REFERENCES auth.users(id) ON DELETE 
 - sessions: 본인 user_id 또는 NULL (게스트) 허용
 - reviews: 본인 user_id 또는 NULL (게스트) 허용
 
+### Feedback 이미지 업로드 (v0.2 Priority 2 완료 2026.03.27)
+
+- FeedbackButton 모달에서 이미지 첨부 기능 추가
+- 이미지 선택: 최대 3장, 5MB 이하 제한
+- 미리보기 표시 + 개별 제거 기능
+- Supabase Storage 업로드 (`feedback-images` bucket)
+- feedback 테이블 `images` 컬럼에 URL 배열 저장
+- 파일명 자동 생성 (user_id/timestamp_random.ext)
+
 ### UX 개선 + 리팩토링 (2026.03.22)
 
 - UX 휴리스틱 평가 (Nielsen 10) — 이슈 7건 발견, 5건 수정
@@ -105,9 +114,10 @@ ALTER TABLE reviews ADD COLUMN user_id UUID REFERENCES auth.users(id) ON DELETE 
 | 우선순위   | 기능                                   | 난이도 |
 | ---------- | -------------------------------------- | ------ |
 | Priority 1 | 커스텀 카테고리 — DB user_id 컬럼 + UI | 쉬움   |
-| Priority 2 | URL 교재 기능 — Cheerio 크롤링         | 중간   |
-| Priority 3 | 학습 후 자동 퀴즈                      | 중간   |
-| Priority 4 | 스케줄 복습 알림 — 에빙하우스 망각곡선 | 어려움 |
+| Priority 2 | ✅ Feedback 이미지 업로드 (완료)       | —      |
+| Priority 3 | URL 교재 기능 — Cheerio 크롤링         | 중간   |
+| Priority 4 | 학습 후 자동 퀴즈                      | 중간   |
+| Priority 5 | 스케줄 복습 알림 — 에빙하우스 망각곡선 | 어려움 |
 
 ### v0.3 예정
 
@@ -172,11 +182,51 @@ ALTER TABLE reviews ADD COLUMN user_id UUID REFERENCES auth.users(id) ON DELETE 
 
 ---
 
+## 🔒 보안 체크리스트
+
+### 구현 완료 항목 ✅
+
+| 항목 | 상태 | 상세 |
+|------|------|------|
+| 환경변수 노출 | ✅ 안전 | `.env.local` git ignore, 클라이언트에서 API key 미사용 |
+| RLS 정책 | ✅ 구현 | categories/sessions/reviews user_id 기반 접근 제어 |
+| CSRF 방지 | ✅ 안전 | Next.js App Router 기본 지원 |
+| XSS 방지 | ✅ 안전 | React JSX 기본 escape (dangerouslySetInnerHTML 미사용) |
+| 파일 업로드 | ✅ 부분 | 클라이언트: 크기(5MB) + 타입(image/*) 검증, Supabase Storage 격리 |
+| Magic Link 인증 | ✅ 안전 | token_hash 방식 사용 (PKCE보다 안전) |
+| Admin 접근 제어 | ✅ 구현 | is_admin 플래그 + middleware 검증 |
+
+### 주의할 항목 ⚠️
+
+| 항목 | 위험도 | 현황 | 액션 |
+|------|--------|------|------|
+| 게스트 데이터 노출 | 중간 | NULL user_id 데이터 누구나 조회 가능 | 데이터는 localStorage만 저장 권장 |
+| 파일 업로드 서버 검증 | 낮음 | 클라이언트만 검증 중 | API 라우트에서 파일 타입 재검증 추가 권장 |
+| Magic Link 만료시간 | 낮음 | Supabase 기본값 | 정기적으로 Supabase 정책 확인 필요 |
+| Rate Limiting | 낮음 | 미구현 | Claude API 일일 한도 설정 고려 (API key 비용 관리) |
+| Admin 권한 탈취 | 높음 | is_admin 계정 탈취 시 전체 DB 유출 | 어드민 계정 정기적 모니터링 필요 |
+| 마크다운 렌더링 | 낮음 | Claude 응답 출력 시 | 렌더링 라이브러리 XSS 방지 확인 필수 |
+
+### 정기 확인 항목 🔄
+
+```bash
+# 의존성 취약점 스캔
+pnpm audit
+
+# 환경변수 확인 (배포 전)
+# 1. .env.local이 .gitignore에 있는가?
+# 2. console.log 제거했는가?
+# 3. 하드코딩된 API key/URL이 있는가?
+```
+
+---
+
 ## 🗄️ DB 테이블 구조 (Supabase)
 
 - **categories**: id, name, icon, is_default, user_id, created_at
 - **sessions**: id, category_id, user_id, title, mode(chat/review), summary, score, duration, created_at
 - **reviews**: id, session_id, user_id, code, good_points, improve_points, messages(jsonb), created_at
+- **feedback**: id, user_id, category(bug/suggestion/other), content, images(text[]), created_at
 
 **Supabase 프로젝트**: InstructorCloyee (fycowopnxqjkpyjarwul)
 
