@@ -45,7 +45,7 @@
 - [x] 중단 세션 복습 요약
 - [x] 히스토리 슬라이싱 (최근 10턴만)
 - [x] UX 휴리스틱 개선 (5개 이슈 해결)
-- [ ] **Feedback 이미지 업로드** (지금 진행 중)
+- [x] **Feedback 이미지 업로드** ✅
 
 ### Could
 - [ ] 커스텀 카테고리 생성
@@ -76,16 +76,16 @@
 
 ---
 
-## 📌 v0.2.2 — Feedback 이미지 업로드 (예정)
+## 📌 v0.2.2 — Feedback 이미지 업로드 (완료 ✅)
 
-### Must
-- [ ] Feedback 작성 시 이미지 첨부 UI
-- [ ] Supabase Storage에 업로드
-- [ ] reviews.images JSONB 저장
+### Must ✅
+- [x] Feedback 작성 시 이미지 첨부 UI
+- [x] Supabase Storage에 업로드
+- [x] feedback.images TEXT[] 저장
 
-### Should
-- [ ] 이미지 미리보기
-- [ ] 이미지 삭제 기능
+### Should ✅
+- [x] 이미지 미리보기
+- [x] 이미지 삭제 기능 (개별 제거)
 
 ### Could
 - [ ] 이미지 필터/편집

@@ -10,7 +10,7 @@
 | 항목 | 값 |
 |------|-----|
 | **현재 버전** | v0.2 진행 중 |
-| **마지막 업데이트** | 2026.03.26 (FeedbackButton UI 개선 완료) |
+| **마지막 업데이트** | 2026.03.28 (GSD 문서 구조 셋업 + 어드민 패널 완료) |
 | **배포 URL** | https://cloyee.vercel.app |
 | **로컬** | http://localhost:3000 |
 
@@ -55,13 +55,21 @@
   - 간격 최적화 (gap-6→gap-2, space-y-4→space-y-2)
   - Border-radius 설정 (DialogContent 12px, Textarea 8px, 버튼 4px)
 
+### v0.2 기타 완료 (2026.03.26~03.28)
+- **어드민 패널** ✅
+  - `/admin/users`, `/admin/categories`, `/admin/feedback`, `/admin/docs`
+  - Sidebar Admin 탭 (is_admin=true일 때만 표시, Shield 아이콘)
+  - middleware.js + admin/layout.jsx 접근 제어
+- **보안 체크리스트** ✅ — 구현 완료/주의 항목 분류
+- **GSD 문서 구조** ✅ — docs/project.md, tasks/, .claude/commands/ 셋업
+
 ---
 
 ## 🔄 지금 진행 중
 
 | 항목 | 상태 | 우선순위 |
 |------|------|---------|
-| 커스텀 카테고리 | 계획 중 | Priority 1 |
+| 커스텀 카테고리 (DB user_id + UI) | 계획 중 | Priority 1 (다음 작업) |
 
 ---
 
@@ -114,6 +122,8 @@
 
 ## 📝 최근 결정사항
 
+- **2026.03.28**: GSD 문서 구조 셋업 (docs/project.md, tasks/, .claude/commands/ 생성)
+- **2026.03.26**: 어드민 패널 + 보안 체크리스트 구축
 - **2026.03.25**: FeedbackButton 책갈피 스타일 (오른쪽 상단 고정) 적용
 - **2026.03.22**: UX 휴리스틱 평가 후 5개 이슈 수정
 - **2026.03.17**: 학습 플로우 재설계 (첫학습 / 복습 분기)
