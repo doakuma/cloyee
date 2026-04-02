@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { parseClaudeJson, DEFAULT_MODEL } from "@/lib/claude";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { checkRateLimit, getRateLimitKey } from "@/lib/rate-limit";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const isDev = process.env.NODE_ENV !== "production";
@@ -71,6 +72,36 @@ export async function POST(request) {
 
   const supabaseServer = await createSupabaseServerClient();
   const { data: { user } } = await supabaseServer.auth.getUser();
+
+  // Rate limiting — skip for admin users
+  let isAdmin = false;
+  if (user) {
+    const { data: profile } = await supabaseServer
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", user.id)
+      .single();
+    isAdmin = profile?.is_admin ?? false;
+  }
+
+  if (!isAdmin) {
+    const rlKey = getRateLimitKey(request, user?.id ?? null);
+    const { allowed, remaining, retryAfterSec } = checkRateLimit(rlKey);
+    if (!allowed) {
+      return new Response(
+        JSON.stringify({ error: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요." }),
+        {
+          status: 429,
+          headers: {
+            "Content-Type": "application/json",
+            "Retry-After": String(retryAfterSec),
+            "X-RateLimit-Remaining": "0",
+          },
+        }
+      );
+    }
+    isDev && console.log("[chat] 남은 요청:", remaining);
+  }
 
   const { category, title, messages, message, userProfile, roadmap, chatMode } = await request.json();
   isDev && console.log("[chat] 요청 수신 — category:", category, "| message:", message?.slice(0, 50));

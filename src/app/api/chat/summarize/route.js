@@ -1,9 +1,36 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { DEFAULT_MODEL } from "@/lib/claude";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { checkRateLimit, getRateLimitKey } from "@/lib/rate-limit";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function POST(req) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // Shared rate limit key — same bucket as /api/chat and /api/review
+  let isAdmin = false;
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", user.id)
+      .single();
+    isAdmin = profile?.is_admin ?? false;
+  }
+
+  if (!isAdmin) {
+    const rlKey = getRateLimitKey(req, user?.id ?? null);
+    const { allowed, retryAfterSec } = checkRateLimit(rlKey);
+    if (!allowed) {
+      return Response.json(
+        { error: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요." },
+        { status: 429, headers: { "Retry-After": String(retryAfterSec) } }
+      );
+    }
+  }
+
   const { messages } = await req.json();
 
   if (!messages?.length) {
