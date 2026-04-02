@@ -315,6 +315,8 @@ function ReviewView() {
       const { data: { user } } = await supabase.auth.getUser();
       const userId = user?.id ?? null;
 
+      if (!userId) return true; // Guest: no DB save
+
       const { data, error } = await supabase
         .from("sessions")
         .insert({

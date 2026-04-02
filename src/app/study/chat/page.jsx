@@ -529,6 +529,8 @@ function ChatView() {
       const { data: { user } } = await supabase.auth.getUser();
       const userId = user?.id ?? null;
 
+      if (!userId) return true; // Guest: no DB save, data remains in sessionStorage
+
       if (sessionId) {
         const { error: sessErr } = await supabase
           .from("sessions")
@@ -576,6 +578,12 @@ function ChatView() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const userId = user?.id ?? null;
+
+      if (!userId) {
+        // Guest: data already in sessionStorage, just navigate away
+        router.push("/dashboard");
+        return;
+      }
 
       const currentScore = learningMsgs.findLast((m) => m.role === "assistant")?.score ?? 0;
       const apiMessages = learningMsgs.map(({ role, content, score, feedback }) => ({
