@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -40,11 +39,19 @@ export default function AdminCategoryActions({ categoryId, categoryName, deleteM
     if (!trimmedName) { setError("카테고리 이름을 입력해주세요."); return; }
     setSaving(true);
     setError("");
-    const { error: dbErr } = await supabase
-      .from("categories")
-      .insert({ name: trimmedName, icon: icon.trim() || null, user_id: null, is_default: true });
+
+    const res = await fetch("/api/admin/categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: trimmedName, icon: icon.trim() || null }),
+    });
+
     setSaving(false);
-    if (dbErr) { setError("저장에 실패했습니다."); return; }
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error ?? "저장에 실패했습니다.");
+      return;
+    }
     setAddOpen(false);
     setIcon("");
     setName("");
@@ -52,9 +59,13 @@ export default function AdminCategoryActions({ categoryId, categoryName, deleteM
   }
 
   async function handleDelete() {
-    await supabase.from("categories").delete().eq("id", categoryId);
+    const res = await fetch(`/api/admin/categories?id=${encodeURIComponent(categoryId)}`, {
+      method: "DELETE",
+    });
     setDeleteOpen(false);
-    router.refresh();
+    if (res.ok) {
+      router.refresh();
+    }
   }
 
   if (deleteMode) {
