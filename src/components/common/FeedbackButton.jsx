@@ -73,28 +73,20 @@ export default function FeedbackButton() {
 
     let imageUrls = [];
     try {
-      // 이미지 Storage 업로드
+      // 이미지 업로드 — 서버 API 경유 (타입·크기·매직바이트 검증)
       if (images.length > 0) {
         imageUrls = await Promise.all(
           images.map(async ({ file }) => {
-            const timestamp = Date.now();
-            const random = Math.random().toString(36).slice(2, 9);
-            // 파일명에서 한글/특수문자 제거 (Supabase Storage 호환성)
-            const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-            const path = `${user?.id ?? 'guest'}/${timestamp}_${random}.${ext}`;
-            const { error } = await supabase.storage
-              .from("feedback-images")
-              .upload(path, file);
-
-            if (error) {
-              console.error("이미지 업로드 실패:", error);
+            const form = new FormData();
+            form.append("file", file);
+            const res = await fetch("/api/upload", { method: "POST", body: form });
+            if (!res.ok) {
+              const data = await res.json().catch(() => ({}));
+              console.error("이미지 업로드 실패:", data.error);
               return null;
             }
-
-            const { data } = supabase.storage
-              .from("feedback-images")
-              .getPublicUrl(path);
-            return data.publicUrl;
+            const { url } = await res.json();
+            return url;
           })
         );
         // null 값 제거 (업로드 실패한 이미지)
