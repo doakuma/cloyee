@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -9,9 +10,12 @@ import {
 } from "@/components/ui/table";
 
 async function getUsers() {
-  // API에서 데이터 조회 (service role 사용)
+  const cookieStore = await cookies();
+  const cookieHeader = cookieStore.getAll().map(c => `${c.name}=${c.value}`).join("; ");
+
   const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/admin/users`, {
     cache: "no-store",
+    headers: { Cookie: cookieHeader },
   });
 
   if (!res.ok) {
