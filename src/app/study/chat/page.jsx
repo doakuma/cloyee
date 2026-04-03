@@ -125,6 +125,7 @@ function ChatView() {
 
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
+  const sessionWasComplete = useRef(false);
 
   const SESSION_KEY = `cloyee_chat_${roadmapId || category}`;
 
@@ -333,11 +334,15 @@ function ChatView() {
     isDev && console.log("[loadSession] 시작 — session_id:", id);
     setLoading(true);
     try {
-      const { data: review, error } = await supabase
-        .from("reviews")
-        .select("messages")
-        .eq("session_id", id)
-        .maybeSingle();
+      const [{ data: session }, { data: review, error }] = await Promise.all([
+        supabase.from("sessions").select("is_complete").eq("id", id).maybeSingle(),
+        supabase.from("reviews").select("messages").eq("session_id", id).maybeSingle(),
+      ]);
+
+      if (session?.is_complete) {
+        sessionWasComplete.current = true;
+        isDev && console.log("[loadSession] 이미 완료된 세션 — 신규 세션으로 저장 예정");
+      }
 
       if (!error && review?.messages?.length > 0) {
         setMessages(review.messages);
@@ -531,7 +536,7 @@ function ChatView() {
 
       if (!userId) return true; // Guest: no DB save, data remains in sessionStorage
 
-      if (sessionId) {
+      if (sessionId && !sessionWasComplete.current) {
         const { error: sessErr } = await supabase
           .from("sessions")
           .update({ is_complete: true, summary, score })
