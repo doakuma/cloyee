@@ -1,4 +1,6 @@
-import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/admin-auth";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -10,24 +12,43 @@ import {
 } from "@/components/ui/table";
 
 async function getUsers() {
-  const cookieStore = await cookies();
-  const cookieHeader = cookieStore.getAll().map(c => `${c.name}=${c.value}`).join("; ");
+  const auth = await requireAdmin();
+  if (auth instanceof NextResponse) return null;
+  const { serviceClient } = auth;
 
-  const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/admin/users`, {
-    cache: "no-store",
-    headers: { Cookie: cookieHeader },
+  const { data: profiles, error: profilesError } = await serviceClient
+    .from("profiles")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (profilesError || !profiles?.length) return [];
+
+  const { data: authUsers } = await serviceClient.auth.admin.listUsers();
+  const emailMap = {};
+  authUsers?.users?.forEach((u) => { emailMap[u.id] = u.email; });
+
+  const { data: sessions } = await serviceClient
+    .from("sessions")
+    .select("user_id")
+    .eq("is_complete", true)
+    .in("user_id", profiles.map((p) => p.id));
+
+  const sessionCountMap = {};
+  sessions?.forEach(({ user_id }) => {
+    sessionCountMap[user_id] = (sessionCountMap[user_id] ?? 0) + 1;
   });
 
-  if (!res.ok) {
-    console.error("Failed to fetch users:", res.statusText);
-    return [];
-  }
-
-  return res.json();
+  return profiles.map((p) => ({
+    ...p,
+    email: emailMap[p.id] ?? "—",
+    session_count: sessionCountMap[p.id] ?? 0,
+  }));
 }
 
 export default async function AdminUsersPage() {
   const users = await getUsers();
+
+  if (users === null) redirect("/login");
 
   return (
     <div className="space-y-6">
